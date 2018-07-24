@@ -1,0 +1,5 @@
+malloc(0x56), image: rawcaudio
+malloc(0x10), image: rawcaudio
+malloc(0x45), image: rawcaudio
+malloc(0x28), image: rawcaudio
+malloc(0x140), image: rawcaudio

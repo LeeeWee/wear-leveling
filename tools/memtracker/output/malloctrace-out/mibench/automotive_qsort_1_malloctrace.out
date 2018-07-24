@@ -1,0 +1,9 @@
+malloc(0x54), image: qsort_large
+malloc(0x10), image: qsort_large
+malloc(0x45), image: qsort_large
+malloc(0x28), image: qsort_large
+malloc(0x140), image: qsort_large
+malloc(0x228), image: qsort_large
+malloc(0x1000), image: qsort_large
+malloc(0x400), image: qsort_large
+malloc(0x124f80), image: qsort_large

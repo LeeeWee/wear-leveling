@@ -1,0 +1,9 @@
+malloc(0x55), image: bf
+malloc(0x10), image: bf
+malloc(0x45), image: bf
+malloc(0x28), image: bf
+malloc(0x140), image: bf
+malloc(0x228), image: bf
+malloc(0x228), image: bf
+malloc(0x1000), image: bf
+malloc(0x1000), image: bf

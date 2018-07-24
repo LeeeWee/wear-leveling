@@ -1,0 +1,6 @@
+malloc(0x57), image: search_large
+malloc(0x10), image: search_large
+malloc(0x45), image: search_large
+malloc(0x28), image: search_large
+malloc(0x140), image: search_large
+malloc(0x400), image: search_large

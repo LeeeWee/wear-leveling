@@ -1,0 +1,22 @@
+##############################################################
+#
+# This file includes all the test targets as well as all the
+# non-default build rules and test recipes.
+#
+##############################################################
+
+
+##############################################################
+#
+# Tools targets
+#
+##############################################################
+TEST_TOOL_ROOTS := memtracker memoryleaker null procinstr showprocs-dynamic showprocs-static straggler-catcher
+
+TOOL_LIBS += -L. -ldebug_info -lrt 
+TOOL_CXXFLAGS += -std=c++0x -g -Wno-error=format-contains-nul -Wno-format-contains-nul -Wno-write-strings
+TOOL_CXXFLAGS_NOOPT=1
+DEBUG = 1
+
+
+

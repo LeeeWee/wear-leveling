@@ -1,0 +1,15 @@
+malloc(0x54), image: untoast
+malloc(0x10), image: untoast
+malloc(0x45), image: untoast
+malloc(0x28), image: untoast
+malloc(0x140), image: untoast
+malloc(0x1a), image: untoast
+malloc(0x228), image: untoast
+malloc(0x400), image: untoast
+malloc(0x1000), image: untoast
+malloc(0x6), image: untoast
+malloc(0x228), image: untoast
+malloc(0x228), image: untoast
+malloc(0x400), image: untoast
+malloc(0x1c), image: untoast
+malloc(0x228), image: untoast

@@ -1,0 +1,6 @@
+malloc(0x57), image: bitcnts
+malloc(0x10), image: bitcnts
+malloc(0x45), image: bitcnts
+malloc(0x28), image: bitcnts
+malloc(0x140), image: bitcnts
+malloc(0x400), image: bitcnts
