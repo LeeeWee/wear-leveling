@@ -7,6 +7,7 @@
 #include <map>
 #include <climits>
 
+
 using namespace std;
 
 template <typename NUM>
@@ -18,6 +19,7 @@ NUM hexstr2num(const char *hexstr) {
     return i;
 }
 
+// split string by space
 vector<string> split(char str[]) {
     vector<string> res;
     if (str == "") return res;
@@ -41,18 +43,28 @@ void processRoutines(ifstream &infile, MemOp memop, vector<MemOp> &memoryOperati
             // get exit routine name
             vector<string> splits = split(line);
             string exitRtnName = splits[1];
-            while (memop->rtnName != exitRtnName) {
+            // if current memop name doesn't equal the exitRtnName, this means current function doesn't exit
+            // iterate reversely and find the exited memop
+            if (memop->rtnName != exitRtnName) {
                 vector<MemOp>::reverse_iterator riter;
                 for (riter = memoryOperations.rbegin(); riter != memoryOperations.rend(); riter++) {
-                    if (*riter == memop) {
+                    if ((*riter)->rtnName == exitRtnName && (*riter)->size <= 0) {
                         break;
                     }
                 } 
-                riter++;
+                if (riter == memoryOperations.rend())
+                    continue;
                 memop = *riter;
             }
+            
             // calculate stack frame memory size
             memop->size = memop->startMemAddr - memop->endMemAddr;
+            // calculate stack operations' offset to the stack frame end address
+            vector<StackOp>::iterator iter;
+            for (iter = memop->stackOperations.begin(); iter != memop->stackOperations.end(); iter++) {
+                (*iter)->offset = (*iter)->stackAddr - memop->endMemAddr;
+            }
+            // free memory operation
             MemOp freeMemop = new MemOperation();
             freeMemop->memOpType = STACK_FRAME_FREE;
             freeMemop->rtnName = memop->rtnName;
@@ -60,10 +72,16 @@ void processRoutines(ifstream &infile, MemOp memop, vector<MemOp> &memoryOperati
             memoryOperations.push_back(freeMemop);
             return;
         }
-        else if (strncmp("MAIN Exited", line, 11) == 0 || strncmp("Entry _exit", line, 11) == 0) {
+        else if (strncmp("MAIN Exited", line, 11) == 0 || strncmp("Entry _exit", line, 11) == 0 
+                    || strncmp("Entry _Exit", line, 11) == 0) {
             // calculate main routine stack frame memory size
             MemOp mainMemop = memoryOperations.at(0);
             mainMemop->size = mainMemop->startMemAddr - mainMemop->endMemAddr;
+            // calculate stack operations' offset to the stack frame end address
+            vector<StackOp>::iterator iter;
+            for (iter = mainMemop->stackOperations.begin(); iter != mainMemop->stackOperations.end(); iter++) {
+                (*iter)->offset = (*iter)->stackAddr - mainMemop->endMemAddr;
+            }
             MemOp freeMemop = new MemOperation();
             freeMemop->memOpType = STACK_FRAME_FREE;
             freeMemop->rtnName = mainMemop->rtnName;
@@ -131,9 +149,11 @@ void removeInvalidRoutines(vector<MemOp> &memoryOperations) {
     vector<MemOp>::iterator iter;
     for (iter = memoryOperations.begin(); iter != memoryOperations.end(); ) {
         if ((*iter)->memOpType == STACK_FRAME_ALLOC) {
-            if ((*iter)->size <= 0 || (*iter)->size >= 0x10000) {
+            if ((*iter)->size <= 1 || (*iter)->size >= 0x10000) {
                 iter = memoryOperations.erase(iter);
             }
+            else if ((*iter)->startMemAddr == 0)
+                iter = memoryOperations.erase(iter);
             else {
                 memopMap.insert(pair<UINT64, string>((*iter)->endMemAddr, (*iter)->rtnName));
                 iter++;
@@ -157,7 +177,7 @@ void removeInvalidRoutines(vector<MemOp> &memoryOperations) {
     }
 }
 
-
+// get memory operations from given file
 vector<MemOp> getMemoryOperations(const char *filename) {
     vector<MemOp> memoryOperations;
     ifstream infile(filename);
@@ -183,6 +203,7 @@ vector<MemOp> getMemoryOperations(const char *filename) {
     return memoryOperations;
 }
 
+// print memory operations info
 void printMemOperations(vector<MemOp> memoryOperations) {
     vector<MemOp>::iterator iter;
     for (iter = memoryOperations.begin(); iter != memoryOperations.end(); iter++) {
@@ -190,16 +211,26 @@ void printMemOperations(vector<MemOp> memoryOperations) {
         cout << hex;
         switch (memop->memOpType) {
             case MALLOC:
-                cout << "malloc " << memop->memAddr << " " << memop->size << endl;
+                cout << "malloc, address: " << hex << memop->memAddr << ", size: " << dec << memop->size << endl;
                 break;
             case FREE:
-                cout << "free " << memop->memAddr << endl;
+                cout << "free, address: " << hex << memop->memAddr << endl;
                 break;
-            case STACK_FRAME_ALLOC:
-                cout << "stack_frame_alloc: " << memop->startMemAddr << " " << memop->endMemAddr << " " << memop->size << " " << memop->rtnName << endl;
+            case STACK_FRAME_ALLOC: {
+                cout << "stack_frame_alloc, start_addr: " << hex << memop->startMemAddr << ", end_addr: " << memop->endMemAddr 
+                    << dec << ", size: " << memop->size << ", routine_name: " << memop->rtnName << endl;
+                // print stackoperations
+                vector<StackOp>::iterator stackop_iter;
+                for (stackop_iter = memop->stackOperations.begin(); stackop_iter != memop->stackOperations.end(); stackop_iter++) {
+                    cout << "\tstack_op: ";
+                    if ((*stackop_iter)->stackOpType == STACK_WRITE) cout << "STACK_WRITE, ";
+                    else cout << "STACK_READ, ";
+                    cout << "address: " << hex << (*stackop_iter)->stackAddr << dec << ", offset: " << (*stackop_iter)->offset << ", size: " << (*stackop_iter)->size << endl;
+                }
                 break;
+            }
             case STACK_FRAME_FREE:
-                cout << "stack_frame_free: " << memop->memAddr << " " << memop->rtnName << endl;
+                cout << "stack_frame_free, address: " << memop->memAddr << ", routine_name: " << memop->rtnName << endl;
                 break;
         }
     }
@@ -279,21 +310,24 @@ void printWearCount(UINT32 wearCount[], int size, UINT64 startAddr, bool isStack
     }
 }
 
-int main(int argc, char *argv[]) {
-    const char *filename = "../PinTools/memtracker.out";
-    vector<MemOp> memoryOperations = getMemoryOperations(filename);
-    cout << "Num of memory operations: " << memoryOperations.size() << endl;
-    printMemOperations(memoryOperations);
-    UINT32 stackWearCounter[100000] = {0};
-    UINT32 heapWearCounter[100000] = {0};
-    UINT64 startAddrOfStack = 0;
-    UINT64 startAddrOfHeap = 0;
-    wearCount(memoryOperations, stackWearCounter, heapWearCounter, startAddrOfStack, startAddrOfHeap);
-    cout << "stack wear count: " << endl;
-    printWearCount(stackWearCounter, 100000, startAddrOfStack, true);
-    cout << "heap wear count: " << endl;
-    printWearCount(heapWearCounter, 100000, startAddrOfHeap, false);
-    return 0;
+void saveMemoryOperations(vector<MemOp> memoryOperations, const char *filename) {
+    // create and open a character archive for output
+    std::ofstream ofs(filename);
+    // save data to archive
+    {
+        boost::archive::text_oarchive oa(ofs);
+        // write StackOperation instance to archive
+        oa << memoryOperations;
+    }
+}
+
+vector<MemOp> loadMemoryOperations(const char *filename) {
+    vector<MemOp> memoryOperations;
+    std::ifstream ifs(filename);
+    boost::archive::text_iarchive ia(ifs);
+    // read state from archive
+    ia >> memoryOperations;
+    return memoryOperations;
 }
 
 

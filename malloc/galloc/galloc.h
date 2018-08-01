@@ -1,4 +1,6 @@
 #pragma once
+#ifndef _GALLOC_H
+#define _GALLOC_H
 
 #include <vector>
 using namespace std;
@@ -59,14 +61,6 @@ typedef HNode Bin[SizeTypes];
 // which means these areas don't bear so many writes. And so on,
 // Middle generation and Old generation have similar implications.
 
-// These bins manage free memory lines.
-Bin FreeBins[3];
-// These bins manage allocated memory lines.
-Bin UsedBins[3];
-
-// Lines number of current heap.
-UINT32 LinesNoOfHeap = 0;
-
 // Initialize bins
 void InitializeBins();
 
@@ -87,3 +81,5 @@ void *galloc(UINT32 Size);
 void gfree(void * p);
 
 void check();
+
+#endif

@@ -41,7 +41,7 @@ t_block nextfit_block(t_block *last, size_t size) {
         *last = b;
         b = b->next;
     } 
-    // if b is null, we do not find a fit block int the left blocks
+    // if b is null, we do not find a fit block in the left blocks
     // find fit block from the base block to temp block
     if (!b) {
         b = base;
@@ -160,6 +160,10 @@ void *basecalloc(size_t number, size_t size, base_type type) {
 
 t_block fusion(t_block b) {
     if (b->next && b->next->free) {
+        // Modify temp
+        if (temp == (void *)b->next)
+            temp = (void *)b;
+        // modify metadata
         b->size += BLOCK_SIZE + b->next->size;
         b->next = b->next->next;
         if (b->next)
@@ -298,6 +302,18 @@ void *nfrealloc(void *p, size_t size) {
 
 void *bfrealloc(void *p, size_t size) {
     return baserealloc(p, size, BEST_FIT);
+}
+
+void printblocks() {
+    if (!base) 
+        return;
+    int i = 0;
+    t_block b = base;
+    while (b) {
+        i++;
+        printf("%d block, address: %p, data_address: %p, size: %x, isfree: %d, temp: %p\n", i, b, b+1, b->size, b->free, temp);
+        b = b->next;
+    }
 }
 
 // int main() {

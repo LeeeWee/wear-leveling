@@ -1,0 +1,11 @@
+build: wearcount.cpp
+	g++ -g -o wearcount wearcount.cpp ~/Workspace/Projects/wear-leveling/tools/MemOpCollector/memop_collector.o ~/Workspace/Projects/wear-leveling/malloc/basemalloc/basemalloc.o \
+	~/Workspace/Projects/wear-leveling/malloc/galloc/galloc.cpp \
+	-I ~/Workspace/Tools/boost_1_67_0/ \
+	-I ~/Workspace/Projects/wear-leveling/malloc \
+	-I ~/Workspace/Projects/wear-leveling/malloc/nvmalloc/include \
+	-I ~/Workspace/Projects/wear-leveling/tools/MemOpCollector \
+	-L ~/Workspace/Tools/boost_1_67_0/stage/lib/ \
+	-lboost_serialization -static
+clean:
+	rm wearcount

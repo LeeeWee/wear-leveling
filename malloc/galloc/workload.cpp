@@ -2,7 +2,7 @@
 #include <iostream>
 #include <ctime>
 #include <vector>
-#include "galloc.cpp"
+#include "galloc.h"
 
 #define random(x, y) (rand() % (y - x + 1) + x)
 

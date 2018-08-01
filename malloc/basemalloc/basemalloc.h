@@ -1,5 +1,9 @@
-#ifndef _FFMALLOC_H
-#define _FFMALLOC_H
+#ifndef _BASEMALLOC_H
+#define _BASEMALLOC_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <stdlib.h>
 
@@ -23,5 +27,11 @@ void *basemalloc(size_t size, base_type type);
 void *basecalloc(size_t number, size_t size, base_type type);
 void *baserealloc(void *p, size_t size, base_type type);
 void basefree(void *p);
+
+void printblocks();
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

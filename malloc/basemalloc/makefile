@@ -1,4 +1,5 @@
 build: test.c basemalloc.h basemalloc.c
-	gcc -g -o a.out test.c basemalloc.c
+	gcc -g -c -o basemalloc.o basemalloc.c
+	gcc -g -o test test.c basemalloc.c
 clean:
-	rm a.out
+	rm test basemalloc.o

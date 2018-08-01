@@ -1,0 +1,22 @@
+bench_name,prog_name,malloc_times
+mediabench2,cjpeg,15
+mediabench2,djpeg,15
+mediabench2,h263enc,194259
+mediabench2,h264dec,4
+mediabench2,mpeg2dec,14
+mediabench2,mpeg2enc,36
+mibench, automotive_basicmath,1
+mibench,automotive_bitcount,1
+mibench,automotive_qsort,4
+mibench,automotive_susan,9
+mibench,consumer_jpeg,15
+mibench,consumer_typeset,154
+mibench,network_dijkstra,75724
+mibench,network_patricia,62725
+mibench,office_stringsearch,1
+mibench,security_blowfish,4
+mibench,security_sha,0
+mibench,telecomm_adpcm,0
+mibench,telecomm_CRC32,8
+mibench,telecomm_FFT,7
+mibench,telecomm_gsm,10

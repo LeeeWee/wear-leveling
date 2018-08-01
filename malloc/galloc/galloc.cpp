@@ -15,6 +15,14 @@ BNode HeaderBoundary;
 
 UINT64 StartAddrOfHeap;
 
+// These bins manage free memory lines.
+Bin FreeBins[3];
+// These bins manage allocated memory lines.
+Bin UsedBins[3];
+
+// Lines number of current heap.
+UINT32 LinesNoOfHeap = 0;
+
 // Record allocated times of each PCM line. Then we can use it to
 // guide movement of memory block between bins of different age.
 UINT32 WearCounter[100000] = {0}; 

@@ -88,7 +88,7 @@ VOID MallocBefore(CHAR * name, ADDRINT size)
 {
     if (!go)
         return;
-    TraceFile << name << "(" << size << ")" << "\t";
+    TraceFile << name << "(" << size << ")" << endl;
 }
 
 VOID MallocAfter(ADDRINT ret)
@@ -123,6 +123,16 @@ VOID Image(IMG img, VOID *v)
 {
 	// TraceFile << "Loading" << IMG_Name(img) << ", Image id = " << IMG_Id(img) << endl;
 
+    /* Find main. We won't do anything before main starts. */
+    RTN rtn = RTN_FindByName(img, "main");
+    if(RTN_Valid(rtn))
+    {
+        RTN_Open(rtn);
+        RTN_InsertCall(rtn, IPOINT_BEFORE, (AFUNPTR)callBeforeMain, IARG_END);
+        RTN_InsertCall(rtn, IPOINT_AFTER, (AFUNPTR)callAfterMain, IARG_END);
+        RTN_Close(rtn);
+    }
+
     // Instrument the malloc() and free() functions.  Print the input argument
     // of each malloc() or free(), and the return value of malloc().
     //
@@ -136,12 +146,12 @@ VOID Image(IMG img, VOID *v)
 
         // Instrument malloc() to print the input argument value and the return value.
         RTN_InsertCall(mallocRtn, IPOINT_BEFORE, (AFUNPTR)MallocBefore,
-                       IARG_ADDRINT, MALLOC,
-                       IARG_FUNCARG_ENTRYPOINT_VALUE, 0,
+                        IARG_ADDRINT, MALLOC,
+                        IARG_FUNCARG_ENTRYPOINT_VALUE, 0,
 					//    IARG_ADDRINT, imageName,	
                        IARG_END);
-        RTN_InsertCall(mallocRtn, IPOINT_AFTER, (AFUNPTR)MallocAfter,
-                      IARG_FUNCRET_EXITPOINT_VALUE, IARG_END);
+        // RTN_InsertCall(mallocRtn, IPOINT_AFTER, (AFUNPTR)MallocAfter,
+        //                 IARG_FUNCRET_EXITPOINT_VALUE, IARG_END);
 
         RTN_Close(mallocRtn);
     }
