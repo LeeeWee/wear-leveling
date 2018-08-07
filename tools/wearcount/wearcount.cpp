@@ -261,11 +261,16 @@ void saveWearcount2File(const char *wearcount_file, const int *metadata_blocks_w
     }
 }
 
-int main() {
-    const char *memory_realloc_file = "../../output/wearcount/memory_realloc.out";
-    const char *metadata_writes_file = "../../output/wearcount/metadata_writes.out";
-    const char *memops_file = "../../output/MemOpCollector/mibench/network_dijkstra.memops";
-    const char *wearcount_file = "../../output/wearcount/wearcount.out";
+int main(int argc, char **argv) {
+    char *memops_file;
+    if (argc > 1) {
+        memops_file = argv[1];
+    } else {
+        memops_file = "/home/liwei/Workspace/Projects/wear-leveling/output/MemOpCollector/mibench/network_dijkstra.memops";
+    }
+    const char *memory_realloc_file = "/home/liwei/Workspace/Projects/wear-leveling/output/wearcount/memory_realloc.out";
+    const char *metadata_writes_file = "/home/liwei/Workspace/Projects/wear-leveling/output/wearcount/metadata_writes.out";
+    const char *wearcount_file = "/home/liwei/Workspace/Projects/wear-leveling/output/wearcount/wearcount.out";
 
     // load memory operations
     clock_t begin_time = clock();
@@ -277,7 +282,7 @@ int main() {
     cout << "map memory operations old address to new address..." << endl;
     vector<MemOp> newMemOperations = mapMemOps2NewAddress(memOperations, memory_realloc_file);
 
-    // dealloc memOPerations vector
+    // dealloc memOperations vector
     vector<MemOp>().swap(memOperations);
     
     // get data writes
@@ -291,6 +296,7 @@ int main() {
     // get the start address and end address
     UINT64 startAddress, endAddress;
     getStartAndEndAddress(dataWrites, metadataWrites, startAddress, endAddress);
+    cout << hex << "startAddress: " << startAddress << ", endAddress: " << endAddress << endl;
     
     cout << "calculating wearcount..." << endl;
     int *metadata_blocks_wearcount = calculateWearcount(metadataWrites, startAddress, endAddress);

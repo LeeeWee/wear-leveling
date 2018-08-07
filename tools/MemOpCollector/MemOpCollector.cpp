@@ -324,6 +324,10 @@ void saveMemoryOperations(vector<MemOp> memoryOperations, const char *filename) 
 vector<MemOp> loadMemoryOperations(const char *filename) {
     vector<MemOp> memoryOperations;
     std::ifstream ifs(filename);
+    if (!ifs) {
+        cout << "Unable to open file " << filename << endl;
+        exit(1);
+    }
     boost::archive::text_iarchive ia(ifs);
     // read state from archive
     ia >> memoryOperations;

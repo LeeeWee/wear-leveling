@@ -53,7 +53,7 @@ std::vector<MdWrite> metadataWrites;
 /* ===================================================================== */
 
 KNOB<string> KnobOutputFile(KNOB_MODE_WRITEONCE, "pintool",
-    "o", "metadata_writes.out", "collect metadata writes");
+    "o", "/home/liwei/Workspace/Projects/wear-leveling/output/wearcount/metadata_writes.out", "collect metadata writes");
 
 /* ===================================================================== */
 
