@@ -13,15 +13,17 @@
 /* Names of malloc and free */
 /* ===================================================================== */
 #ifndef MALLOC
-#define MALLOC "basemalloc"
+#define MALLOC "__libc_malloc"
 #endif
 #ifndef FREE
-#define FREE "basefree"
+#define FREE "__cfree"
 #endif
 
 #ifndef UINT64
 #define UINT64 unsigned long long
 #endif
+
+#define DEBUG
 
 // the minimal size of memory 
 #define ALIGNMENT 8 

@@ -1,0 +1,115 @@
+stack_frame_alloc, start_addr: 7ffc4bf17a48, end_addr: 7ffc4bf17a28, size: 32, routine_name: main
+	stack_op: STACK_WRITE, address: 7ffc4bf17a40, offset: 24, size: 8
+	stack_op: STACK_WRITE, address: 7ffc4bf17a38, offset: 16, size: 4
+	stack_op: STACK_WRITE, address: 7ffc4bf17a28, offset: 0, size: 8
+	stack_op: STACK_READ, address: 7ffc4bf17a28, offset: 0, size: 8
+	stack_op: STACK_WRITE, address: 7ffc4bf17a3c, offset: 20, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf17a40, offset: 24, size: 8
+stack_frame_alloc, start_addr: 7ffc4bf17a28, end_addr: 7ffc4bf16a60, size: 4040, routine_name: _Z10array_testv
+	stack_op: STACK_WRITE, address: 7ffc4bf17a20, offset: 4032, size: 8
+	stack_op: STACK_WRITE, address: 7ffc4bf17a18, offset: 4024, size: 8
+	stack_op: STACK_WRITE, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_WRITE, address: 7ffc4bf16a70, offset: 16, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_WRITE, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_WRITE, address: 7ffc4bf16a74, offset: 20, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_WRITE, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_WRITE, address: 7ffc4bf16a78, offset: 24, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_WRITE, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_WRITE, address: 7ffc4bf16a7c, offset: 28, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_WRITE, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_WRITE, address: 7ffc4bf16a80, offset: 32, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_WRITE, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_WRITE, address: 7ffc4bf16a84, offset: 36, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_WRITE, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_WRITE, address: 7ffc4bf16a88, offset: 40, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_WRITE, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_WRITE, address: 7ffc4bf16a8c, offset: 44, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_WRITE, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_WRITE, address: 7ffc4bf16a90, offset: 48, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_WRITE, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_WRITE, address: 7ffc4bf16a94, offset: 52, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_WRITE, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a60, offset: 0, size: 4
+	stack_op: STACK_WRITE, address: 7ffc4bf16a64, offset: 4, size: 4
+	stack_op: STACK_WRITE, address: 7ffc4bf16a68, offset: 8, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a64, offset: 4, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf16a68, offset: 8, size: 4
+	stack_op: STACK_WRITE, address: 7ffc4bf16a6c, offset: 12, size: 4
+	stack_op: STACK_READ, address: 7ffc4bf17a18, offset: 4024, size: 8
+	stack_op: STACK_READ, address: 7ffc4bf17a20, offset: 4032, size: 8
+stack_frame_free, address: 7ffc4bf16a60, routine_name: _Z10array_testv
+stack_frame_free, address: 7ffc4bf17a28, routine_name: main
+allocated size distribution: 
+0 ~ 20 bytes: 0
+20 ~ 40 bytes: 1
+40 ~ 60 bytes: 0
+60 ~ 80 bytes: 0
+80 ~ a0 bytes: 0
+a0 ~ c0 bytes: 0
+c0 ~ e0 bytes: 0
+e0 ~ 100 bytes: 0
+100 ~ 120 bytes: 0
+120 ~ 140 bytes: 0
+140 ~ 160 bytes: 0
+160 ~ 180 bytes: 0
+180 ~ 1a0 bytes: 0
+1a0 ~ 1c0 bytes: 0
+1c0 ~ 1e0 bytes: 0
+1e0 ~ 200 bytes: 0
+200 ~ 220 bytes: 0
+220 ~ 240 bytes: 0
+240 ~ 260 bytes: 0
+260 ~ 280 bytes: 0
+280 ~ 2a0 bytes: 0
+2a0 ~ 2c0 bytes: 0
+2c0 ~ 2e0 bytes: 0
+2e0 ~ 300 bytes: 0
+300 ~ 320 bytes: 0
+320 ~ 340 bytes: 0
+340 ~ 360 bytes: 0
+360 ~ 380 bytes: 0
+380 ~ 3a0 bytes: 0
+3a0 ~ 3c0 bytes: 0
+3c0 ~ 3e0 bytes: 0
+3e0 ~ 400 bytes: 0
+over 1024 bytes: 1

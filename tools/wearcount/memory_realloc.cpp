@@ -59,7 +59,6 @@ int main(int argc, char **argv) {
             addrmap.insert(pair<UINT64, UINT64>((*iter)->endMemAddr, (UINT64)p));
             outfile << hex;
             outfile << "stack_alloc\told address: 0x" << (*iter)->endMemAddr << ", new address: 0x" << (UINT64)p << ", size: " << (*iter)->size << endl;
-
         }
         if ((*iter)->memOpType == FREE || (*iter)->memOpType == STACK_FRAME_FREE) {
             if ((*iter)->memAddr == ULLONG_MAX)

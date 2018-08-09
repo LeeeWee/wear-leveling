@@ -51,6 +51,7 @@ void collectForDir(string dirname, string outputdir, string input_suffix=".memtr
 }
 
 
+
 void wearcount_test() {
     const char *filename = "../PinTools/memtracker.out";
     vector<MemOp> memoryOperations = getMemoryOperations(filename);
@@ -87,8 +88,17 @@ void save_load_test() {
 
 
 int main(int argc, char *argv[]) {
-    const char *dirname = "../memtracker/output/memtrack-out/mibench/";
-    const char *outputdir = "./output/mibench";
-    collectForDir(dirname, outputdir);
+    char *inputdir, *outputdir;
+    if (argc > 2) {
+        inputdir = argv[1];
+        outputdir = argv[2];
+    } else {
+        cout << "Collect memory operations for .memtrack file in the given directory, "; 
+        cout << "and output related .memops file to given output directory. " << endl;
+        cout << "Usage: ./CollectMemOp.o inputdir outputdir" << endl;
+        return 1;
+    }
+
+    collectForDir(inputdir, outputdir);
     return 0;
 }
