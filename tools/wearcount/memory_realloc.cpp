@@ -24,7 +24,6 @@ using namespace std;
 
 int main(int argc, char **argv) {
 
-    // InitializeBins();
     char *filename;
     if (argc > 1) {
         filename = argv[1];
@@ -37,6 +36,9 @@ int main(int argc, char **argv) {
         cout << "Unable to open file " << output << endl;
         exit(1);
     }
+
+    // InitializeBins();
+    nvmalloc_init(1000, 100);
 
     // clock_t begin_time = clock();
     // cout << "Loading memory operations..." << endl;
@@ -79,5 +81,7 @@ int main(int argc, char **argv) {
             outfile << "old address: 0x" << (*iter)->memAddr << ", new address: 0x" << it->second << endl;
         }
     }
+
+    nvmalloc_exit();
 }
 
