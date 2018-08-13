@@ -30,7 +30,7 @@
 
 #define PAGE_SIZE 0x1000
 #define CACHE_LINE_SIZE 64
-#define NEW_ALLOC_PAGES 1024
+#define NEW_ALLOC_PAGES 4
 #define NIL 0xFFFFFFFFFFFFFFFF
 #define BASE_SIZE 64
 #define BASE_SIZE_MASK  (BASE_SIZE - 1)
@@ -251,7 +251,7 @@ static inline int getMoreMemory(uint32_t size)
     addr = (char*) mmap(end_address, newPages * PAGE_SIZE, PROT_READ | PROT_WRITE,
                         MAP_ANON | MAP_PRIVATE | MAP_FIXED, 0, 0);
 #endif
-
+    
     if (addr == MAP_FAILED) {
         perror("mremap failed");
         return -1;
@@ -268,6 +268,8 @@ static inline int getMoreMemory(uint32_t size)
 #else
     end_address += newPages * PAGE_SIZE;
 #endif
+
+    printf("get_more_memory mmap: %p ~ %p\n", end_address - newPages * PAGE_SIZE, end_address);
 
     nr_pages += newPages;
 
@@ -594,6 +596,8 @@ void nvmalloc_init(unsigned nrPages, unsigned long freeWait)
     nr_pages = nrPages;
     free_zone = start_address;
     end_address = start_address + nrPages * PAGE_SIZE;
+
+    printf("nvmalloc_init mmap: %p ~ %p\n", start_address, end_address);
 
     dont_allocate_list_head = NIL;
     dont_allocate_list_tail = NIL;

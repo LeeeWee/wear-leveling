@@ -5,6 +5,7 @@
 #include <string>
 #include <sstream>
 #include <map>
+#include <set>
 #include <ctime>
 #include <climits>
 #include <algorithm>
@@ -219,6 +220,21 @@ void getStartAndEndAddress(vector<MemWrites> dataWrites, vector<MemWrites> metad
     endAddress = max(endAddressOfDataWrites, endAddressOfMetadataWrites);
 }
 
+// get the start address and end address only considering the datawrites
+void getStartAndEndAddress(vector<MemWrites> dataWrites, UINT64 &startAddress, UINT64 &endAddress) {
+    UINT64 startAddressOfDataWrites = ULLONG_MAX;
+    UINT64 endAddressOfDataWrites = 0;
+    vector<MemWrites>::iterator iter;
+    for (iter = dataWrites.begin(); iter != dataWrites.end(); iter++) {
+        if ((*iter)->address < startAddressOfDataWrites)
+            startAddressOfDataWrites = (*iter)->address;
+        if ((*iter)->address + (*iter)->size > endAddressOfDataWrites)
+            endAddressOfDataWrites = (*iter)->address + (*iter)->size;
+    }
+    startAddress = startAddressOfDataWrites;
+    endAddress = endAddressOfDataWrites;
+}
+
 int *calculateWearcount(vector<MemWrites> memwrites, UINT64 startAddress, UINT64 endAddress) {
     wearcount_size = (endAddress - startAddress) / ALIGNMENT;
     blocks_wearcount_size = (endAddress - startAddress) % BLOCK_SIZE  == 0 ? 
@@ -261,11 +277,55 @@ void saveWearcount2File(const char *wearcount_file, const int *metadata_blocks_w
     }
 }
 
+void saveWearcount2File(const char *wearcount_file, const int *data_blocks_wearcount) {
+    ofstream outfile(wearcount_file);
+    outfile << "data:" << endl;
+    for (int i = 0; i < blocks_wearcount_size; i++) {
+        outfile << i << "," << data_blocks_wearcount[i] << endl;
+    }
+}
+
+// remove the memory operation that allocate more than 1024 byted and the corresponding free memory
+void removeLargeOperations(vector<MemOp> &memOperations) {
+    std::set<UINT64> deletedAddr;
+    vector<MemOp>::iterator iter = memOperations.begin();
+    while (iter != memOperations.end()) {
+        if ((*iter)->memOpType == MALLOC || (*iter)->memOpType == STACK_FRAME_ALLOC) {
+            if ((*iter)->size > 1024) {
+                if ((*iter)->memOpType == MALLOC) deletedAddr.insert((*iter)->memAddr);
+                else deletedAddr.insert((*iter)->endMemAddr);
+                iter = memOperations.erase(iter);
+            } else {
+                iter++;
+            }
+        } else {
+            set<UINT64>::iterator addrIter;
+            if ((addrIter = deletedAddr.find((*iter)->memAddr)) != deletedAddr.end()) {
+                iter = memOperations.erase(iter);
+                deletedAddr.erase(addrIter);
+            } else {
+                iter++;
+            }
+        }
+            
+    }
+}
+
 int main(int argc, char **argv) {
     char *memops_file;
-    if (argc > 1) {
+    bool consideringMetadata = false;
+    bool removeLargeMemOp = false;
+    if (argc > 2) {
         memops_file = argv[1];
-    } else {
+        for (int i = 2; i <= argc; i++) {
+            if (argv[i] == "-cm") 
+                consideringMetadata = true;
+            if (argv[i] == "-rl")
+                removeLargeMemOp = true;
+        }
+    } else if (argc > 1) {
+        memops_file = argv[1];
+    }else {
         memops_file = "/home/liwei/Workspace/Projects/wear-leveling/output/MemOpCollector/mibench/network_dijkstra.memops";
     }
     const char *memory_realloc_file = "/home/liwei/Workspace/Projects/wear-leveling/output/wearcount/memory_realloc.out";
@@ -277,6 +337,11 @@ int main(int argc, char **argv) {
     cout << "Loading memory operations..." << endl;
     vector<MemOp> memOperations = loadMemoryOperations(memops_file);
     cout << "Finished loading, cost " << float(clock() - begin_time) / CLOCKS_PER_SEC << "s" << endl;
+    
+    if (removeLargeMemOp) {
+        cout << "removing large operations..." << endl;
+        removeLargeOperations(memOperations);
+    }
 
     // map the old address to the new address
     cout << "map memory operations old address to new address..." << endl;
@@ -289,19 +354,33 @@ int main(int argc, char **argv) {
     cout << "getting data writes..." << endl;
     vector<MemWrites> dataWrites = getDataWrites(newMemOperations);
     
-    // get metadata writes
-    cout << "getting metadata writes..." << endl;
-    vector<MemWrites> metadataWrites = loadMetadataWrites(metadata_writes_file);
-
-    // get the start address and end address
-    UINT64 startAddress, endAddress;
-    getStartAndEndAddress(dataWrites, metadataWrites, startAddress, endAddress);
-    cout << hex << "startAddress: " << startAddress << ", endAddress: " << endAddress << endl;
     
-    cout << "calculating wearcount..." << endl;
-    int *metadata_blocks_wearcount = calculateWearcount(metadataWrites, startAddress, endAddress);
-    int *data_blocks_wearcount = calculateWearcount(dataWrites, startAddress, endAddress);
+    UINT64 startAddress, endAddress;
 
-    cout << "saving wearcout info to file..." << endl;
-    saveWearcount2File(wearcount_file, metadata_blocks_wearcount, data_blocks_wearcount);
+    if (consideringMetadata) {
+        // get metadata writes
+        cout << "getting metadata writes..." << endl;
+        vector<MemWrites> metadataWrites = loadMetadataWrites(metadata_writes_file);
+        // get the start address and end address
+        getStartAndEndAddress(dataWrites, metadataWrites, startAddress, endAddress);
+        cout << hex << "startAddress: " << startAddress << ", endAddress: " << endAddress << endl;
+
+        cout << "calculating wearcount..." << endl;
+        int *metadata_blocks_wearcount = calculateWearcount(metadataWrites, startAddress, endAddress);
+        int *data_blocks_wearcount = calculateWearcount(dataWrites, startAddress, endAddress);
+
+        cout << "saving wearcout info to file..." << endl;
+        saveWearcount2File(wearcount_file, metadata_blocks_wearcount, data_blocks_wearcount);
+    }
+    else {
+        // get the start address and end address
+        getStartAndEndAddress(dataWrites, startAddress, endAddress);
+        cout << hex << "startAddress: " << startAddress << ", endAddress: " << endAddress << endl;
+
+        cout << "calculating wearcount..." << endl;
+        int *data_blocks_wearcount = calculateWearcount(dataWrites, startAddress, endAddress);
+
+        cout << "saving wearcout info to file..." << endl;
+        saveWearcount2File(wearcount_file, data_blocks_wearcount);
+    }
 }

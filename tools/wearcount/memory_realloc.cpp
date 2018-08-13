@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <map>
+#include <set>
 #include <ctime>
 #include <fstream>
 #include "MemOpCollector.h"
@@ -12,20 +13,53 @@
 using namespace std;
 
 #ifndef ALLOC_NAME
-#define _MALLOC(size) ffmalloc(size)
+#define _MALLOC(size) nvmalloc(size)
 #else
 #define _MALLOC(size) ALLOC_NAME(size)
 #endif
 #ifndef FREE_NAME
-#define _FREE(p) basefree(p)
+#define _FREE(p) nvfree(p)
 #else
 #define _FREE(p) FREE_NAME(p)
 #endif
 
+// remove the memory operation that allocate more than 1024 byted and the corresponding free memory
+void removeLargeOperations(vector<MemOp> &memOperations) {
+    std::set<UINT64> deletedAddr;
+    vector<MemOp>::iterator iter = memOperations.begin();
+    while (iter != memOperations.end()) {
+        if ((*iter)->memOpType == MALLOC || (*iter)->memOpType == STACK_FRAME_ALLOC) {
+            if ((*iter)->size > 1024) {
+                if ((*iter)->memOpType == MALLOC) deletedAddr.insert((*iter)->memAddr);
+                else deletedAddr.insert((*iter)->endMemAddr);
+                iter = memOperations.erase(iter);
+            } else {
+                iter++;
+            }
+        } else {
+            set<UINT64>::iterator addrIter;
+            if ((addrIter = deletedAddr.find((*iter)->memAddr)) != deletedAddr.end()) {
+                iter = memOperations.erase(iter);
+                deletedAddr.erase(addrIter);
+            } else {
+                iter++;
+            }
+        }
+            
+    }
+}
+
 int main(int argc, char **argv) {
 
     char *filename;
-    if (argc > 1) {
+    bool removeLargeMemOP = false;
+    if (argc > 2) {
+        filename = argv[1];
+        for (int i = 2; i <= argc; i++) {
+            if (argv[i] == "-rl")
+                removeLargeMemOP = true;
+        }
+    } else if (argc > 1) {
         filename = argv[1];
     } else {
         filename = "/home/liwei/Workspace/Projects/wear-leveling/output/MemOpCollector/mibench/network_dijkstra.memops";
@@ -38,11 +72,16 @@ int main(int argc, char **argv) {
     }
 
     // InitializeBins();
-    nvmalloc_init(1000, 100);
+    nvmalloc_init(100, 100);
 
     // clock_t begin_time = clock();
     // cout << "Loading memory operations..." << endl;
     vector<MemOp> memOperations = loadMemoryOperations(filename);
+
+    // remove large operations
+    if (removeLargeMemOP)
+        removeLargeOperations(memOperations);
+    
     // cout << "Finished loading, cost " << float(clock() - begin_time) / CLOCKS_PER_SEC << "s" << endl;
     // map the old address to the new address
     map<UINT64, UINT64> addrmap; 
@@ -65,6 +104,7 @@ int main(int argc, char **argv) {
         if ((*iter)->memOpType == FREE || (*iter)->memOpType == STACK_FRAME_FREE) {
             if ((*iter)->memAddr == ULLONG_MAX)
                 continue;
+            
             map<UINT64, UINT64>::iterator it = addrmap.find((*iter)->memAddr);
             if (it == addrmap.end()) {
                 outfile << "Free unallocated memory!" << endl;
