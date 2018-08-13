@@ -58,7 +58,8 @@ void getWritesFrequenceForStackFrameWrites(vector<MemOp> memOperations) {
     vector<PAIR> writeFrequenceVec(writeFrequence.begin(), writeFrequence.end());
     sort(writeFrequenceVec.begin(), writeFrequenceVec.end(), CmpByValue());
     for (int i = 0; i < 20; i++) {
-        cout << writeFrequenceVec[i].first->rtnName << " " << writeFrequenceVec[i].second << endl;
+        cout << writeFrequenceVec[i].first->rtnName << ",size: " << writeFrequenceVec[i].first->size;
+        cout << ", maxWrite: " << writeFrequenceVec[i].second << endl;
     }
 }
 

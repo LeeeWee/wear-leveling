@@ -50,6 +50,15 @@ void collectForDir(string dirname, string outputdir, string input_suffix=".memtr
     }
 }
 
+void collectForFile(string inputfile, string outputdir, string output_suffix=".memops") {
+    if (!endwith(outputdir, "/")) outputdir += "/";
+    string filename = inputfile.substr(inputfile.rfind("/") + 1, inputfile.rfind(".") - inputfile.rfind("/") - 1);
+    string output = outputdir + filename + output_suffix;
+    cout << "Collecting memory operations for " << inputfile << "..." << endl;
+    vector<MemOp> memOperations = getMemoryOperations(inputfile.c_str());
+    saveMemoryOperations(memOperations, output.c_str());
+}
+
 
 
 void wearcount_test() {
@@ -88,17 +97,34 @@ void save_load_test() {
 
 
 int main(int argc, char *argv[]) {
-    char *inputdir, *outputdir;
+    char *inputdir = NULL, *outputdir = NULL, *inputfile = NULL;
+    // parse arguments
     if (argc > 2) {
-        inputdir = argv[1];
-        outputdir = argv[2];
-    } else {
+        for (int i = 1; i < argc; i++) {
+            if (argv[i][0] == '-') {
+                if (strcmp(argv[i], "-d") == 0) {
+                    if (++i < argc) 
+                        inputdir = argv[i];
+                } else if (strcmp(argv[i], "-f") == 0) {
+                    if (++i < argc) 
+                        inputfile = argv[i];
+                } else if (strcmp(argv[i], "-o") == 0) {
+                    if (++i < argc) 
+                        outputdir = argv[i];
+                }
+            }
+        }
+    } 
+    if (!outputdir || (!inputdir && !inputfile)) {
         cout << "Collect memory operations for .memtrack file in the given directory, "; 
         cout << "and output related .memops file to given output directory. " << endl;
-        cout << "Usage: ./CollectMemOp.o inputdir outputdir" << endl;
+        cout << "Usage: ./CollectMemOp.o -d inputdir -f inputfile -o outputdir" << endl;
         return 1;
     }
+    if (inputdir)
+        collectForDir(inputdir, outputdir);
+    if (inputfile)
+        collectForFile(inputfile, outputdir);
 
-    collectForDir(inputdir, outputdir);
     return 0;
 }
