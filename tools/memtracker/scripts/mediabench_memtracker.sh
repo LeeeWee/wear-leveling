@@ -16,7 +16,7 @@ malloctrace() {
 	outname=${1:${#BENCHMARK_DIR}+1} # get file name
 	outname=${outname//\//_}
 	echo $outname
-	suffix=.malloctrace
+	suffix=.memtrack
 	out=${MALLOCTRACE_OUTDIR}/${outname%_runme.sh}
 	
 	# read content in runme_large.sh
