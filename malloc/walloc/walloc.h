@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-void walloc_init();
+void walloc_init(void);
 void walloc_exit(void);
 void *walloc(unsigned size);
 int wfree(void *addr);

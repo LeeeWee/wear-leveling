@@ -30,7 +30,7 @@
 
 #define PAGE_SIZE 0x1000
 #define CACHE_LINE_SIZE 64
-#define NEW_ALLOC_PAGES 4
+#define NEW_ALLOC_PAGES (128 * 1024 / PAGE_SIZE) // 128 KB
 #define NIL 0xFFFFFFFFFFFFFFFF
 #define BASE_SIZE 64
 #define BASE_SIZE_MASK  (BASE_SIZE - 1)
@@ -205,6 +205,10 @@ static inline void makeOne(uint64_t location, uint32_t size) {
     uint32_t i;
 
     for (i = 0; i < size; i++) {
+        // if (bitmap[index] & mask != 0) {
+        //     perror("Error: bitmap[index] & mask != 0\n");
+        //     exit(1);
+        // }
         bitmap[index] = bitmap[index] | mask;
         if (mask == 128) {
             mask = 1;
@@ -333,6 +337,7 @@ static char* getFreeLocation(uint32_t size, uint32_t* actSize)
         } while (free_space < actualSize && free_lists[index]);
 
         if (free_space >= actualSize) {
+            /**
             uint32_t n = free_space;
             char* ptr = start_address + location;
             unsigned char exactFit = 0;
@@ -367,9 +372,10 @@ static char* getFreeLocation(uint32_t size, uint32_t* actSize)
                     exactFit = 1;
                 }
             }
+            */
             if (free_space > actualSize) {
                 list_head* lh;
-
+/*
                 if (!exactFit) {
                     //must write a new header
                     header* hd = (header*) (start_address + location + actualSize);
@@ -383,7 +389,7 @@ static char* getFreeLocation(uint32_t size, uint32_t* actSize)
 #endif
 #endif
                 }
-
+*/
                 lh = (list_head*)malloc(sizeof(list_head));
                 lh->position = location + actualSize;
                 lh->next = NULL;
