@@ -201,68 +201,15 @@ static inline int getMoreMemory(uint32_t size)
     return 0;
 }
 
-// Given a size, the function returns a pointer to a free region of that size. The region's actual
-// size (rounded to a  multiple of BASE_SIZE) is returned in the actualSize argument.
-static char *getFreeLocation(uint32_t size, uint32_t *actSize) 
-{
-    int index = getBestFit(size);
-    uint32_t actualSize;
-    char *freeLocation = NULL;
 
-    if (index < NR_SIZES) {
-        actualSize = (index + 1) * BASE_SIZE;
-    } else {
-        if (size & BASE_SIZE_MASK) {
-            actualSize = (size & ~BASE_SIZE_MASK) + BASE_SIZE;
-        } else {
-            actualSize = size;
-        }
-    }
-    *actSize = actualSize;
-
-    while (!freeLocation && index <= NR_SIZES) {
-        if (!free_lists[index]) {
-            index++;
-            continue;
-        }
-
-        list_head *tmp = free_lists[index];
-        uint64_t location = free_lists[index]->position;
-        uint32_t free_space = (index + 1) * BASE_SIZE;
-        free_lists[index] = free_lists[index]->next;
-        free(tmp);
-
-        ASSERT(free_space >= actualSize);
-
-        // if the free_space is larger than actualSize, split the free_space
-        if (free_space > actualSize) {
-            
-        }
-    }
-
-    if (!freeLocation) {
-        if (free_zone + actualSize > end_address) {
-            if (getMoreMemory(actualSize) < 0) {
-                return NULL;
-            }
-        }
-        freeLocation = free_zone;
-        free_zone += actualSize;
-    }
-
-    makeOne((uint64_t)(freeLocation - start_address), actualSize / BASE_SIZE);
-    
-    return freeLocation;
-}
-
-static inline uint32_t averageWearCount(char *location, uint32_t sizeForward, uint32_t totalSize)
+static inline uint32_t averageWearCount(char *location, uint32_t size)
 {
     uint32_t awc = 0;
-    uint32_t index = (uint64_t)((location - start_address) + sizeForward - totalSize) / BASE_SIZE;
-    for (; index < totalSize; index++) {
+    uint32_t index = (uint64_t)(location - start_address) / BASE_SIZE;
+    for (; index < size; index++) {
         awc += volatile_metadata_list[index]->MWC;
     }
-    awc = awc / totalSize;
+    awc = awc / size;
     return awc;
 }
 
@@ -298,7 +245,7 @@ static inline void removeListHeadFromFreeList(uint64_t location, uint32_t index)
 
 // Try to extend the given free location with neighbouring free location,
 // and remove the neighbouring free location from their related free_list
-static inline uint32_t extendFreeLocation(char *location, uint32_t *size)
+static inline void extendFreeLocation(char *location, uint32_t *size)
 {
     uint32_t n, index;
     uint64_t offset = (uint64_t)(location - start_address);
@@ -322,26 +269,26 @@ static inline uint32_t extendFreeLocation(char *location, uint32_t *size)
         uint64_t backwardLocation = offset - n * BASE_SIZE;
         index = getBestFit(n * BASE_SIZE);
         removeListHeadFromFreeList(backwardLocation, index);
+
+        // reset the location value
+        location = (char *)(location - n * BASE_SIZE);
     }
 
-    return *size + n * BASE_SIZE;
+    *size = *size + n * BASE_SIZE;
 }
 
 // Insert the free location in the appropriate free list
 static inline void insertFreeLocation(char *location, uint32_t size)
-{
-    uint32_t sizeForward = size;
-    uint32_t totalSize = extendFreeLocation(location, sizeForward);
-    
-    ASSERT(!(totalSize & BASE_SIZE_MASK));
+{   
+    ASSERT(!(size & BASE_SIZE_MASK));
    
     header *nh;
     list_head *lh;
     int index;
 
-    if (location + sizeForward >= free_zone && location < free_zone) {
+    if (location + size >= free_zone && location < free_zone) {
         // merge with the free zone
-        free_zone = location + sizeForward - totalSize;
+        free_zone = location;
         ((header*) location)->size = 0;
         mfence();
         clflush(location);
@@ -349,7 +296,7 @@ static inline void insertFreeLocation(char *location, uint32_t size)
     }
 
     nh = (header *)location;
-    nh->size = -(int32_t)sizeForward;
+    nh->size = -(int32_t)size;
     
     // flush the header containing the new size to memory -- marks an unrevertible delete
     mfence();
@@ -358,9 +305,9 @@ static inline void insertFreeLocation(char *location, uint32_t size)
 
     // put hint in free lists
     lh = (list_head*)malloc(sizeof(list_head));
-    index = getBestFit(totalSize);
-    lh->position = (uint64_t)((location - start_address) + sizeForward - totalSize);
-    lh->averageWearCount = averageWearCount(location, sizeForward, totalSize);
+    index = getBestFit(size);
+    lh->position = (uint64_t)(location - start_address);
+    lh->averageWearCount = averageWearCount(location, size);
     
     // insert to the fit position of the related free_list
     if (!free_lists[index]) { // if the free_list is empty
@@ -389,6 +336,117 @@ static inline void insertFreeLocation(char *location, uint32_t size)
     }
 }
 
+
+// Given a size, the function returns a pointer to a free region of that size. The region's actual
+// size (rounded to a  multiple of BASE_SIZE) is returned in the actualSize argument.
+static char *getFreeLocation(uint32_t size, uint32_t *actSize) 
+{
+    int index = getBestFit(size);
+    uint32_t actualSize;
+    char *freeLocation = NULL;
+
+    if (index < NR_SIZES) {
+        actualSize = (index + 1) * BASE_SIZE;
+
+        // find free space from the indexed free_list, if there is no list_head in the 
+        // free_list, find from the larger free_list
+        while (!freeLocation && index <= NR_SIZES) {
+            if (!free_lists[index]) {
+                index++;
+                continue;
+            }
+
+            list_head *tmp = free_lists[index];
+            uint64_t location = free_lists[index]->position;
+            uint32_t free_space;
+
+            header *hd = (header *)OFFSET_TO_PTR(location);
+            
+            //test that the free_space is correct
+            ASSERT(hd->size < 0);
+            if (index < NR_SIZES) {
+                free_space = (index + 1) * BASE_SIZE;
+                ASSERT(-hd->size == free_space);
+            } else {
+                ASSERT(-hd->size > NR_SIZES * BASE_SIZE);
+                free_space = -hd->size;
+            }
+
+            free_lists[index] = free_lists[index]->next;
+            free(tmp);
+
+            // if the free_space is larger than actualSize, split the free_space
+            if (free_space > actualSize) {
+                char *forwardLocation = OFFSET_TO_PTR(location + actualSize);
+                uint32_t size = free_space - actualSize;
+                insertFreeLocation(forwardLocation, size);
+            }
+            freeLocation = OFFSET_TO_PTR(location);
+        }
+
+    } else {
+        if (size & BASE_SIZE_MASK) {
+            actualSize = (size & ~BASE_SIZE_MASK) + BASE_SIZE;
+        } else {
+            actualSize = size;
+        }
+
+        // find free location from the last free_list
+        if (free_lists[NR_SIZES]) {
+            list_head *lh = free_lists[NR_SIZES];
+            list_head *prevlh = NULL;
+            do {
+                header *hd = OFFSET_TO_PTR(lh->position);
+
+                ASSERT(-hd->size > NR_SIZES * BASE_SIZE);
+    
+                if (-hd->size >= actualSize) {
+                    if (!prevlh) { // the lh is the first list_head in this free_list
+                        if (lh->next)
+                            free_lists[NR_SIZES] = lh->next;
+                        else   
+                            free_lists[NR_SIZES] = NULL;
+                    } else {
+                        if (lh->next)
+                            prevlh->next = lh->next;
+                        else 
+                            prevlh->next = NULL;
+                    }
+                    // free this list_head
+                    free(lh);
+
+                    // if the free_space is larger than actualSize, split the free_space
+                    if (-hd->size > actualSize) {
+                        char *forwardLocation = OFFSET_TO_PTR(lh->position + actualSize);
+                        uint32_t size = -hd->size - actualSize;
+                        insertFreeLocation(forwardLocation, size);
+                    }
+                    freeLocation = OFFSET_TO_PTR(lh->position);
+
+                } else {
+                    prevlh = lh;
+                    lh = lh->next;
+                }
+            } while (!freeLocation && lh);
+        }
+    }
+    *actSize = actualSize;
+
+    // can not find fit block in the free_lists, allocate memory at the free_zone
+    if (!freeLocation) {
+        if (free_zone + actualSize > end_address) {
+            if (getMoreMemory(actualSize) < 0) {
+                return NULL;
+            }
+        }
+        freeLocation = free_zone;
+        free_zone += actualSize;
+    }
+
+    makeOne((uint64_t)(freeLocation - start_address), actualSize / BASE_SIZE);
+    
+    return freeLocation;
+}
 
 // Initialization function
 void walloc_init(void) {
@@ -451,6 +509,8 @@ int wfree(void *addr)
     }
 
     size = (uint32_t)(((header *)location)->size);
+
+    extendFreeLocation(location, &size);
     insertFreeLocation(location, size); 
 }
 

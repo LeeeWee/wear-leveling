@@ -337,7 +337,7 @@ static char* getFreeLocation(uint32_t size, uint32_t* actSize)
         } while (free_space < actualSize && free_lists[index]);
 
         if (free_space >= actualSize) {
-            /**
+            
             uint32_t n = free_space;
             char* ptr = start_address + location;
             unsigned char exactFit = 0;
@@ -372,10 +372,10 @@ static char* getFreeLocation(uint32_t size, uint32_t* actSize)
                     exactFit = 1;
                 }
             }
-            */
+            
             if (free_space > actualSize) {
                 list_head* lh;
-/*
+
                 if (!exactFit) {
                     //must write a new header
                     header* hd = (header*) (start_address + location + actualSize);
@@ -389,7 +389,7 @@ static char* getFreeLocation(uint32_t size, uint32_t* actSize)
 #endif
 #endif
                 }
-*/
+
                 lh = (list_head*)malloc(sizeof(list_head));
                 lh->position = location + actualSize;
                 lh->next = NULL;
