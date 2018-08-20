@@ -131,13 +131,13 @@ void processRoutines(ifstream &infile, MemOp memop, vector<MemOp> &memoryOperati
                 memop->stackOperations.push_back(stackop);
             } 
             else if (strncmp("read", line, 4) == 0) {
-                StackOp stackop = new StackOperation();
-                stackop->stackOpType = STACK_READ;
-                // split line
-                vector<string> splits = split(line);
-                stackop->stackAddr = hexstr2num<UINT64>(splits[1].c_str());
-                stackop->size = hexstr2num<UINT16>(splits[2].c_str());
-                memop->stackOperations.push_back(stackop);
+                // StackOp stackop = new StackOperation();
+                // stackop->stackOpType = STACK_READ;
+                // // split line
+                // vector<string> splits = split(line);
+                // stackop->stackAddr = hexstr2num<UINT64>(splits[1].c_str());
+                // stackop->size = hexstr2num<UINT16>(splits[2].c_str());
+                // memop->stackOperations.push_back(stackop);
             }
         }
     } 
@@ -201,6 +201,29 @@ vector<MemOp> getMemoryOperations(const char *filename) {
     // remove invalid memory operations
     removeInvalidRoutines(memoryOperations);
     return memoryOperations;
+}
+
+vector<MemOp> getMemoryOperations(const char *filename, const char *outfilename) {
+    ifstream infile(filename);
+    ofstream outfile(outfilename);
+    if (!infile) {
+        cout << "Failed to open file " << filename << endl;
+        exit(1);
+    }
+    if (!outfile) {
+        cout << "Failed to open file " << outfilename << endl;
+        exit(1);
+    }
+    char line[100];
+    infile.getline(line, 100);
+    if (strncmp("MAIN", line, 4) != 0) {
+        cout << "The input file to be parsed must started with \"MAIN CALLED +++++++++++++++\"" << endl;
+        exit(1);
+    }
+    infile.getline(line, 100); // Entry main >>>>>>>>
+    MemOp mainMemop = new MemOperation();
+    mainMemop->memOpType = STACK_FRAME_ALLOC;
+
 }
 
 // print memory operations info

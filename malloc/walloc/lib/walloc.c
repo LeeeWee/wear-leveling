@@ -5,6 +5,9 @@
 #include <fcntl.h>
 #include <stdint.h>
 
+#define WORST_WEAR_COUNT
+// #define AVERAGE_WEAR_COUNT
+
 #ifdef DEBUG
 #define ASSERT(x) \
     do { \
@@ -53,7 +56,7 @@ typedef struct volatile_metadata {
 // free list head
 typedef struct list_head {
     uint64_t position;
-    uint32_t averageWearCount;
+    uint32_t wearcount;
     struct list_head *next;
 } list_head;
 
@@ -124,20 +127,22 @@ static inline uint32_t isFreeBackward(uint64_t location)
     return n;
 }
 
-// change the state of the volatile metadata related to the location to 1
+// change the state of the volatile metadata to 1
 static inline void makeOne(uint64_t offset, uint32_t size) 
 {
     unsigned index = offset / BASE_SIZE;
-    for (int i = index; i < index + size; i++) {
+    uint32_t end = index + size / BASE_SIZE;
+    for (int i = index; i < end; i++) {
         volatile_metadata_list[i]->state = 1;
     }
 }
 
-// change the state of the volatile metadata related to the location to 0
+// change the state of the volatile metadata to 0
 static inline void makeZero(uint64_t offset, uint32_t size)
 {
     unsigned index = offset / BASE_SIZE;
-    for (int i = index; i < index + size; i++) {
+    uint32_t end = index + size / BASE_SIZE;
+    for (int i = index; i < end; i++) {
         volatile_metadata_list[i]->state = 0;
     }
 }
@@ -191,10 +196,12 @@ static inline int getMoreMemory(uint32_t size)
 
     // realloc volatile_metadata_list
     new_volatile_metadata_list_size = volatile_metadata_list_size + newPages * PAGE_SIZE / BASE_SIZE;
-    volatile_metadata_list = (volatile_metadata *)realloc(volatile_metadata_list, new_volatile_metadata_list_size);
+    volatile_metadata_list = (volatile_metadata **)realloc(volatile_metadata_list, new_volatile_metadata_list_size * sizeof(volatile_metadata *));
     for (i = volatile_metadata_list_size; i < new_volatile_metadata_list_size; i++) {
+        volatile_metadata_list[i] = (volatile_metadata *)malloc(sizeof(volatile_metadata));
         volatile_metadata_list[i]->state = 0;
-        volatile_metadata_list[i]->DWC = volatile_metadata_list[i]->MWC = 0;
+        volatile_metadata_list[i]->DWC = 0;
+        volatile_metadata_list[i]->MWC = 0;
     }
     volatile_metadata_list_size = new_volatile_metadata_list_size;
 
@@ -206,11 +213,24 @@ static inline uint32_t averageWearCount(char *location, uint32_t size)
 {
     uint32_t awc = 0;
     uint32_t index = (uint64_t)(location - start_address) / BASE_SIZE;
-    for (; index < size; index++) {
-        awc += volatile_metadata_list[index]->MWC;
+    uint32_t end = index + size / BASE_SIZE;
+    for (int i = index; i < end; i++) {
+        awc += volatile_metadata_list[i]->MWC;
     }
-    awc = awc / size;
+    awc = awc / (size / BASE_SIZE);
     return awc;
+}
+
+static inline uint32_t worstWearCount(char *location, uint32_t size)
+{
+    uint32_t wwc = 0;
+    uint32_t index = (uint64_t)(location - start_address) / BASE_SIZE;
+    uint32_t end = index + size / BASE_SIZE;
+    for (int i = index; i < end; i++) {
+        if (wwc < volatile_metadata_list[i]->MWC)
+            wwc = volatile_metadata_list[i]->MWC;
+    }
+    return wwc;
 }
 
 
@@ -221,14 +241,14 @@ static inline void removeListHeadFromFreeList(uint64_t location, uint32_t index)
     list_head *lh = free_lists[index];
     if (lh->position == location) { // if the list_head is the first list_head in the free_list
         if (lh->next) 
-            free_lists[index] = lh->position;
+            free_lists[index] = lh->next;
         else 
             free_lists[index] = NULL;
         // free this list_head
         free(lh);
     } else { // the list_head is not the first list_head in the free_list
         list_head *prevlh;
-        while (lh->position != location && lh != NULL) {
+        while ( lh && lh->position != location) {
             prevlh = lh;
             lh = lh->next;
         }
@@ -245,16 +265,16 @@ static inline void removeListHeadFromFreeList(uint64_t location, uint32_t index)
 
 // Try to extend the given free location with neighbouring free location,
 // and remove the neighbouring free location from their related free_list
-static inline void extendFreeLocation(char *location, uint32_t *size)
+static inline void extendFreeLocation(char **location, uint32_t *size)
 {
     uint32_t n, index;
-    uint64_t offset = (uint64_t)(location - start_address);
+    uint64_t offset = (uint64_t)(*location - start_address);
 
-    makeZero(offset, *size / BASE_SIZE);
+    makeZero(offset, *size);
 
     n = isFreeForward(offset);
 
-    if (n != *size) {
+    if (n * BASE_SIZE != *size) {
         // remove the forward list_head from its free_lists
         uint64_t forwardLocation = offset + *size;
         index = getBestFit(n * BASE_SIZE - *size);
@@ -271,7 +291,7 @@ static inline void extendFreeLocation(char *location, uint32_t *size)
         removeListHeadFromFreeList(backwardLocation, index);
 
         // reset the location value
-        location = (char *)(location - n * BASE_SIZE);
+        *location = (char *)(*location - n * BASE_SIZE);
     }
 
     *size = *size + n * BASE_SIZE;
@@ -307,7 +327,12 @@ static inline void insertFreeLocation(char *location, uint32_t size)
     lh = (list_head*)malloc(sizeof(list_head));
     index = getBestFit(size);
     lh->position = (uint64_t)(location - start_address);
-    lh->averageWearCount = averageWearCount(location, size);
+
+#ifdef AVERAGE_WEAR_COUNT
+    lh->wearcount = averageWearCount(location, size);
+#else
+    lh->wearcount = worstWearCount(location, size);
+#endif
     
     // insert to the fit position of the related free_list
     if (!free_lists[index]) { // if the free_list is empty
@@ -317,12 +342,13 @@ static inline void insertFreeLocation(char *location, uint32_t size)
     else {
         list_head *tmp = free_lists[index];
         // if this list_head is the least allocated one, insert this list_head at the fisrt place
-        if (tmp->averageWearCount > lh->averageWearCount) { 
+        if (tmp->wearcount >= lh->wearcount) { 
             lh->next = free_lists[index];
             free_lists[index] = lh;
+            return;
         }
         list_head *prev;
-        while (tmp->averageWearCount < lh->averageWearCount && tmp) {
+        while (tmp && tmp->wearcount < lh->wearcount) {
             prev = tmp;
             tmp = tmp->next;
         }
@@ -352,6 +378,11 @@ static char *getFreeLocation(uint32_t size, uint32_t *actSize)
         // free_list, find from the larger free_list
         while (!freeLocation && index <= NR_SIZES) {
             if (!free_lists[index]) {
+                index++;
+                continue;
+            }
+
+            if (free_lists[index]->wearcount > WEAR_COUNT_LIMIT) {
                 index++;
                 continue;
             }
@@ -443,7 +474,7 @@ static char *getFreeLocation(uint32_t size, uint32_t *actSize)
         free_zone += actualSize;
     }
 
-    makeOne((uint64_t)(freeLocation - start_address), actualSize / BASE_SIZE);
+    makeOne((uint64_t)(freeLocation - start_address), actualSize);
     
     return freeLocation;
 }
@@ -467,7 +498,14 @@ void walloc_init(void) {
 
     // allocate memory for volatile_metadata_list
     volatile_metadata_list_size = NEW_ALLOC_PAGES * PAGE_SIZE / BASE_SIZE;
-    volatile_metadata_list = (volatile_metadata *)malloc(volatile_metadata_list_size * sizeof(volatile_metadata));
+    volatile_metadata_list = (volatile_metadata **)malloc(volatile_metadata_list_size * sizeof(volatile_metadata *));
+    void *volatile_metadata_start_addr = malloc(volatile_metadata_list_size * sizeof(volatile_metadata));
+    for (int i = 0; i < volatile_metadata_list_size; i++) {
+        volatile_metadata_list[i] = (volatile_metadata *)((volatile_metadata *)volatile_metadata_start_addr + i);
+        volatile_metadata_list[i]->state = 0;
+        volatile_metadata_list[i]->DWC = 0;
+        volatile_metadata_list[i]->MWC = 0;
+    }
 
     // initialize free_list
     for (i = 0; i <= NR_SIZES; i++) {
@@ -484,8 +522,8 @@ void walloc_exit(void)
 
 void *walloc(uint32_t size) 
 {
-    uint32_t actualSize = 0;
     char *location;
+    uint32_t actualSize = 0;
     location = getFreeLocation(size + sizeof(header), &actualSize);
 
     if (!location) {
@@ -494,7 +532,7 @@ void *walloc(uint32_t size)
 
     ((header *) location)->size = actualSize;
 
-    addMetadataWearCount((uint64_t)(location - start_address), actualSize);
+    addMetadataWearCount((uint64_t)(location - start_address), actualSize / BASE_SIZE);
     
     return (void *)(location + sizeof(header));
 }
@@ -510,7 +548,7 @@ int wfree(void *addr)
 
     size = (uint32_t)(((header *)location)->size);
 
-    extendFreeLocation(location, &size);
+    extendFreeLocation(&location, &size);
     insertFreeLocation(location, size); 
 }
 
@@ -524,7 +562,7 @@ void walloc_print(void)
         }
         if (i >= (free_zone - start_address) / BASE_SIZE) {
             printf(" f ");
-        } else if (volatile_metadata_list[i]) {
+        } else if (volatile_metadata_list[i]->state) {
             printf(" o ");
         } else {
             printf(" _ ");

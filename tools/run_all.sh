@@ -4,7 +4,7 @@ WEARCOUNT_DIR=${WORK_DIR}/tools/wearcount
 MEMTRACKER_DIR=${WORK_DIR}/tools/memtracker
 PLOTWRITES_DIR=${WORK_DIR}/tools/plot_memory_writes
 
-MALLOC_FLAG='-DALLOC_NAME=ffmalloc -DFREE_NAME=basefree'
+MALLOC_FLAG='-DWALLOC'
 MEMOPS_FILE=${WORK_DIR}/output/MemOpCollector/mibench/network_patricia.memops
 MEMWRITES_PLOT_FIGURE=${WORK_DIR}/output/wearcount/mibench/network_patricia_ffmalloc.png
 

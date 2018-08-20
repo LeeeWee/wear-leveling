@@ -9,19 +9,43 @@
 #include "basemalloc/basemalloc.h"
 #include "galloc/galloc.h"
 #include "nvmalloc.h"
+#include "walloc.h"
 
 using namespace std;
 
-#ifndef ALLOC_NAME
+#ifdef NVMALLOC
 #define _MALLOC(size) nvmalloc(size)
-#else
-#define _MALLOC(size) ALLOC_NAME(size)
-#endif
-#ifndef FREE_NAME
 #define _FREE(p) nvfree(p)
 #else
-#define _FREE(p) FREE_NAME(p)
+#ifdef WALLOC
+#define _MALLOC(size) walloc(size)
+#define _FREE(p) wfree(p)
+#else 
+#ifdef MALLOC
+#define _MALLOC(size) malloc(size)
+#define _FREE(p) free(p)
+#else 
+#ifdef FFMALLOC
+#define _MALLOC(size) ffmalloc(size)
+#define _FREE(p) basefree(p)
+#else 
+#ifdef NFMALLOC
+#define _MALLOC(size) nfmalloc(size)
+#define _FREE(p) basefree(p)
+#else 
+#ifdef BFMALLOC
+#define _MALLOC(size) bfmalloc(size)
+#define _FREE(p) basefree(p)
+#else 
+#define _MALLOC(size) walloc(size)
+#define _FREE(p) wfree(p)
 #endif
+#endif
+#endif
+#endif
+#endif
+#endif
+
 
 // remove the memory operation that allocate more than 1024 byted and the corresponding free memory
 void removeLargeOperations(vector<MemOp> &memOperations) {
@@ -71,8 +95,15 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
-    // InitializeBins();
+#ifdef  NVMALLOC
     nvmalloc_init(100, 100);
+#else
+#ifdef WALLOC
+    walloc_init();
+#else
+    walloc_init();
+#endif
+#endif
 
     // clock_t begin_time = clock();
     // cout << "Loading memory operations..." << endl;
@@ -122,6 +153,15 @@ int main(int argc, char **argv) {
         }
     }
 
+#ifdef  NVMALLOC
     nvmalloc_exit();
+#else
+#ifdef WALLOC
+    walloc_exit();
+#else
+    walloc_exit();
+#endif
+#endif
+
 }
 

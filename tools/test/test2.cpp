@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
 
 #define DEBUG
 
@@ -12,6 +14,7 @@
 #else
 #define ASSERT(x)
 #endif
+
 
 int main() {
     int a = 0;
@@ -30,6 +33,8 @@ int main() {
     printf("sizeof(long long): %lu\n", sizeof(long long));
     printf("sizeof(float): %lu\n", sizeof(float));
     printf("sizeof(double): %lu\n", sizeof(double));
+
+
 
     return 0;
 }
