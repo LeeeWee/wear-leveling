@@ -562,6 +562,16 @@ int wfree(void *addr)
 
     size = (uint32_t)(((header *)location)->size);
 
+    // if the wearcount is large than WEAR_COUNT_LIMIT, do not release the memory
+    uint32_t wearcount;
+#ifdef AVERAGE_WEAR_COUNT
+    wearcount = averageWearCount(location, size);
+#else
+    wearcount = worstWearCount(location, size);
+#endif
+    if (wearcount >= WEAR_COUNT_LIMIT)
+        return;
+
     extendFreeLocation(&location, &size);
     insertFreeLocation(location, size); 
 }
