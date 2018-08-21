@@ -10,9 +10,6 @@
 #include <climits>
 #include <algorithm>
 #include "MemOpCollector.h"
-#include "basemalloc/basemalloc.h"
-#include "galloc/galloc.h"
-#include "nvmalloc.h"
 
 using namespace std;
 

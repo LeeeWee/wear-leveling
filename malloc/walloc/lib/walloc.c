@@ -307,7 +307,20 @@ static inline void insertFreeLocation(char *location, uint32_t size)
     int index;
 
     if (location + size >= free_zone && location < free_zone) {
-        // merge with the free zone
+        // // merge with the free zone
+        // // iterate the memory blocks reversely, and merge from the block that all 
+        // // the back blocks' MWC is less than WEAR_COUNT_LIMIT  
+        // uint64_t offset = PTR_TO_OFFSET(location);
+        // unsigned index = offset / BASE_SIZE;
+        // uint32_t end = index + size / BASE_SIZE;
+        // uint32_t i;
+        // for (i = end - 1; i >= index; i--) {
+        //     if (volatile_metadata_list[i]->MWC > WEAR_COUNT_LIMIT) {
+        //         i++;
+        //         break;
+        //     }
+        // }
+        // char *new_location = OFFSET_TO_PTR(i * BASE_SIZE);
         free_zone = location;
         ((header*) location)->size = 0;
         mfence();
@@ -382,7 +395,8 @@ static char *getFreeLocation(uint32_t size, uint32_t *actSize)
                 continue;
             }
 
-            if (free_lists[index]->wearcount > WEAR_COUNT_LIMIT) {
+
+            if (free_lists[index]->wearcount >= WEAR_COUNT_LIMIT) {
                 index++;
                 continue;
             }
@@ -423,7 +437,7 @@ static char *getFreeLocation(uint32_t size, uint32_t *actSize)
         }
 
         // find free location from the last free_list
-        if (free_lists[NR_SIZES]) {
+        if (free_lists[NR_SIZES] && free_lists[NR_SIZES]->wearcount < WEAR_COUNT_LIMIT) {
             list_head *lh = free_lists[NR_SIZES];
             list_head *prevlh = NULL;
             do {
@@ -580,4 +594,17 @@ void walloc_print(void)
         }
         printf("NULL\n");
     }
+}
+
+void walloc_wearcount_print(void)
+{
+    unsigned i;
+
+    for (i = 0; i < (end_address - start_address) / BASE_SIZE; i++) {
+        if (!(i % (PAGE_SIZE / BASE_SIZE))) {
+            printf("\n");
+        }
+        printf(" %d ", volatile_metadata_list[i]->MWC);
+    }
+    printf("\n");
 }

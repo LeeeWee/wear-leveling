@@ -10,6 +10,7 @@ void walloc_exit(void);
 void *walloc(unsigned size);
 int wfree(void *addr);
 void walloc_print(void);
+void walloc_wearcount_print(void);
 
 
 

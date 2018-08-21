@@ -203,29 +203,6 @@ vector<MemOp> getMemoryOperations(const char *filename) {
     return memoryOperations;
 }
 
-vector<MemOp> getMemoryOperations(const char *filename, const char *outfilename) {
-    ifstream infile(filename);
-    ofstream outfile(outfilename);
-    if (!infile) {
-        cout << "Failed to open file " << filename << endl;
-        exit(1);
-    }
-    if (!outfile) {
-        cout << "Failed to open file " << outfilename << endl;
-        exit(1);
-    }
-    char line[100];
-    infile.getline(line, 100);
-    if (strncmp("MAIN", line, 4) != 0) {
-        cout << "The input file to be parsed must started with \"MAIN CALLED +++++++++++++++\"" << endl;
-        exit(1);
-    }
-    infile.getline(line, 100); // Entry main >>>>>>>>
-    MemOp mainMemop = new MemOperation();
-    mainMemop->memOpType = STACK_FRAME_ALLOC;
-
-}
-
 // print memory operations info
 void printMemOperations(vector<MemOp> memoryOperations) {
     vector<MemOp>::iterator iter;

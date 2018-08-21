@@ -110,8 +110,10 @@ int main(int argc, char **argv) {
     vector<MemOp> memOperations = loadMemoryOperations(filename);
 
     // remove large operations
-    if (removeLargeMemOP)
+    if (removeLargeMemOP) {
+        cout << "Removing large memory operations..." << endl;
         removeLargeOperations(memOperations);
+    }
     
     // cout << "Finished loading, cost " << float(clock() - begin_time) / CLOCKS_PER_SEC << "s" << endl;
     // map the old address to the new address

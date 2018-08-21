@@ -76,8 +76,8 @@ int main(int argc, char **argv) {
     vector<MemOp> memOperations = loadMemoryOperations(filename);
     // cout << "Finished loading, cost " << float(clock() - begin_time) / CLOCKS_PER_SEC << "s" << endl;
 
-    // getWritesFrequenceForStackFrameWrites(memOperations);
-    printMemOperations(memOperations);
+    getWritesFrequenceForStackFrameWrites(memOperations);
+    // printMemOperations(memOperations);
 
 }
 
