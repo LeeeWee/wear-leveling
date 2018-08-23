@@ -5,12 +5,12 @@ MEMTRACKER_DIR=${WORK_DIR}/tools/memtracker
 PLOTWRITES_DIR=${WORK_DIR}/tools/plot_memory_writes
 OUTPUT_DIR=${WORK_DIR}/output
 
-MALLOC_FLAG='-DWALLOC'
-MEMOPS_FILE=${OUTPUT_DIR}/MemOpCollector/mibench/network_dijkstra.memops
+MALLOC_FLAG='-DGLIBC_MALLOC'
+MEMOPS_FILE=${OUTPUT_DIR}/MemOpCollector/mibench/network_patricia.memops
 WEARCOUNT_OUTFILE=${OUTPUT_DIR}/wearcount/wearcount.out
 ALLOC_DISTRIBUTION_OUTFILE=${OUTPUT_DIR}/wearcount/alloc_distribution.out
-MEMWRITES_PLOT_FIGURE=${WORK_DIR}/output/wearcount/mibench/network_dijkstra_walloc.png
-ALLOC_DISTRIBUTION_PLOT_FIGURE=${WORK_DIR}/output/wearcount/mibench/network_dijkstra_walloc_distribution.png
+MEMWRITES_PLOT_FIGURE=${WORK_DIR}/output/wearcount/mibench/network_patricia_malloc.png
+ALLOC_DISTRIBUTION_PLOT_FIGURE=${WORK_DIR}/output/wearcount/mibench/network_patricia_malloc_distribution.png
 
 #cd wearcount_dir
 echo cd ${WEARCOUNT_DIR}
@@ -35,7 +35,7 @@ ${WEARCOUNT_DIR}/memory_realloc ${MEMOPS_FILE}
 # execute wearcount
 # echo cd ${WEARCOUNT_DIR}
 # cd ${WEARCOUNT_DIR}
-${WEARCOUNT_DIR}/wearcount ${MEMOPS_FILE}
+${WEARCOUNT_DIR}/wearcount ${MEMOPS_FILE} -malloc
 
 # execute allocate_dustribution
 ${WEARCOUNT_DIR}/allocate_distribution

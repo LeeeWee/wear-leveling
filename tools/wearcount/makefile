@@ -5,11 +5,13 @@ build: memory_realloc.cpp
 	-I ~/Workspace/Projects/wear-leveling/malloc \
 	-I ~/Workspace/Projects/wear-leveling/malloc/nvmalloc/include \
 	-I ~/Workspace/Projects/wear-leveling/malloc/walloc/include \
+	-I ~/Workspace/Projects/wear-leveling/malloc/newalloc/include \
+	-I ~/Workspace/Projects/wear-leveling/tools/MemOpCollector \
 	-L ~/Workspace/Projects/wear-leveling/malloc/nvmalloc/lib \
 	-L ~/Workspace/Projects/wear-leveling/malloc/walloc/lib \
-	-I ~/Workspace/Projects/wear-leveling/tools/MemOpCollector \
+	-L ~/Workspace/Projects/wear-leveling/malloc/newalloc/lib \
 	-L ~/Workspace/Tools/boost_1_67_0/stage/lib/ \
-	-lboost_serialization -lnvmalloc -lwalloc -static $(MALLOC_FLAG)
+	-lboost_serialization -lnvmalloc -lwalloc -lnewalloc -static $(MALLOC_FLAG)
 
 	g++ -g -o wearcount wearcount.cpp ~/Workspace/Projects/wear-leveling/tools/MemOpCollector/memop_collector.o \
 	-I ~/Workspace/Tools/boost_1_67_0/ \

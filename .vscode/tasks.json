@@ -1,0 +1,59 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "command": "g++",
+    "options": {
+        // "cwd": "${workspaceFolder}/tools/MemOpCollector"
+        "cwd": "${workspaceFolder}/tools/wearcount"
+    },
+    "tasks": [
+        {
+            "label": "build MemOpCollector",
+            "type": "shell",
+            "command": "g++",
+            "args": [
+                "-g", "-o", "MemOpCollector", "MemOpCollector.cpp", "-I",
+                "~/Workspace/Tools/boost_1_67_0/", "-L", "~/Workspace/Tools/boost_1_67_0/stage/lib/", 
+                "-lboost_serialization", "-static"
+            ]
+        },
+        {
+            "label": "build memory_realloc",
+            "type": "shell",
+            "command": "g++",
+            "args": [
+                "-g", "-O0", "-o", "memory_realloc", "memory_realloc.cpp", "~/Workspace/Projects/wear-leveling/tools/MemOpCollector/memop_collector.o",
+                "~/Workspace/Projects/wear-leveling/malloc/basemalloc/basemalloc.o", 
+                "~/Workspace/Projects/wear-leveling/malloc/galloc/galloc.cpp",
+                "-I", "~/Workspace/Tools/boost_1_67_0/", 
+                "-I", "~/Workspace/Projects/wear-leveling/malloc", 
+                "-I", "~/Workspace/Projects/wear-leveling/malloc/nvmalloc/include", 
+                "-I", "~/Workspace/Projects/wear-leveling/malloc/walloc/include", 
+                "-I", "~/Workspace/Projects/wear-leveling/malloc/newalloc/include",
+                "-L", "~/Workspace/Projects/wear-leveling/malloc/nvmalloc/lib", 
+                "-L", "~/Workspace/Projects/wear-leveling/malloc/walloc/lib", 
+                "-L", "~/Workspace/Projects/wear-leveling/malloc/newalloc/lib",
+                "-I", "~/Workspace/Projects/wear-leveling/tools/MemOpCollector", 
+                "-L", "~/Workspace/Tools/boost_1_67_0/stage/lib/", 
+                "-lboost_serialization", "-lnvmalloc", "-lwalloc", "-lnewalloc", "-static"
+            ]
+        },
+        {
+            "label": "build wearcount",
+            "type": "shell",
+            "command": "g++",
+            "args": [
+                "-g", "-o", "wearcount", "wearcount.cpp", "~/Workspace/Projects/wear-leveling/tools/MemOpCollector/memop_collector.o",
+                "~/Workspace/Projects/wear-leveling/malloc/basemalloc/basemalloc.o",
+                "~/Workspace/Projects/wear-leveling/malloc/galloc/galloc.cpp",
+                "-I", "~/Workspace/Tools/boost_1_67_0/",
+                "-I", "~/Workspace/Projects/wear-leveling/malloc",
+                "-I", "~/Workspace/Projects/wear-leveling/malloc/nvmalloc/include",
+                "-I", "~/Workspace/Projects/wear-leveling/tools/MemOpCollector",
+                "-L", "~/Workspace/Tools/boost_1_67_0/stage/lib/",
+                "-lboost_serialization", "-static"
+            ]
+        }
+    ]
+}

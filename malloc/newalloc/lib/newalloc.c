@@ -5,6 +5,8 @@
 #include <fcntl.h>
 #include <stdint.h>
 
+#define WORST_WEAR_COUNT
+// #define AVERAGE_WEAR_COUNT
 
 #ifdef DEBUG
 #define ASSERT(x) \
@@ -28,24 +30,26 @@
 #define BASE_SIZE_MASK  (BASE_SIZE - 1)
 #define NR_SIZES (4 * 1024 / BASE_SIZE)
 
-#define LIST_WEARCOUNT_LIMIT 100
-#define INCREASE_LIMIT_THRESHOLD 100
+#define WEAR_COUNT_LIMIT 200
 
 static char *start_address;
 static char *free_zone;
 static char *end_address;
 static unsigned nr_pages;
-static uint32_t list_wearcount_limit = LIST_WEARCOUNT_LIMIT;
-static uint32_t increase_wearcount_threshold = INCREASE_LIMIT_THRESHOLD;
 
 typedef struct header {
     int64_t size;
 } header;
 
+typedef struct header_free {
+    int64_t size;
+    uint64_t next;
+    uint64_t prev;
+} header_free;
+
 typedef struct volatile_metadata {
     unsigned char state;
-    uint32_t MWC; // metadata wear count 
-    uint32_t DWC; // data wear count
+    uint32_t WC; // wear count 
 } volatile_metadata;
 
 // free list head
@@ -58,12 +62,6 @@ typedef struct list_head {
 static volatile_metadata **volatile_metadata_list;
 static unsigned long volatile_metadata_list_size;
 static list_head *free_lists[NR_SIZES + 1];
-
-static uint32_t free_lists_size[NR_SIZES + 1] = {0};
-static uint32_t free_lists_size_sum = 0;
-static uint32_t list_wearcount_sum[NR_SIZES + 1] = {0};
-static uint32_t lists_wearcount_sum = 0;
-
 
 static inline void clflush(volatile char* __p) 
 {
@@ -113,6 +111,21 @@ static inline uint32_t isFreeForward(uint64_t location)
     return n;
 }
 
+// check free blocks forward from location + size, return num of free blocks forward + size / BASE_SIZE
+static inline uint32_t isFreeForwardWithSize(uint64_t location, uint32_t size) 
+{
+    uint32_t n = size / BASE_SIZE;
+    int32_t index = location / BASE_SIZE + n;
+    uint64_t end = free_zone - start_address;
+    location = location + size;
+    while (location < end && !(volatile_metadata_list[index]->state) && volatile_metadata_list[index]->WC < WEAR_COUNT_LIMIT) {
+        n++;
+        location += BASE_SIZE;
+        index++;
+    }
+    return n;
+}
+
 static inline uint32_t isFreeBackward(uint64_t location) 
 {
     uint32_t n = 0;
@@ -121,7 +134,7 @@ static inline uint32_t isFreeBackward(uint64_t location)
         return 0;
     
     index--;
-    while (index >= 0 && !(volatile_metadata_list[index]->state)) {
+    while (index >= 0 && !(volatile_metadata_list[index]->state) && volatile_metadata_list[index]->WC < WEAR_COUNT_LIMIT) {
         n++;
         index--;
     }
@@ -152,7 +165,7 @@ static inline void addMetadataWearCount(uint64_t offset, uint32_t size)
 {
     unsigned index = offset / BASE_SIZE;
     for (int i = index; i < index + size; i++) {
-        volatile_metadata_list[i]->MWC += 1;
+        volatile_metadata_list[i]->WC += 1;
     }
 }
 
@@ -201,8 +214,7 @@ static inline int getMoreMemory(uint32_t size)
     for (i = volatile_metadata_list_size; i < new_volatile_metadata_list_size; i++) {
         volatile_metadata_list[i] = (volatile_metadata *)malloc(sizeof(volatile_metadata));
         volatile_metadata_list[i]->state = 0;
-        volatile_metadata_list[i]->DWC = 0;
-        volatile_metadata_list[i]->MWC = 0;
+        volatile_metadata_list[i]->WC = 0;
     }
     volatile_metadata_list_size = new_volatile_metadata_list_size;
 
@@ -210,20 +222,15 @@ static inline int getMoreMemory(uint32_t size)
 }
 
 
-static inline uint32_t sumWearCount(char *location, uint32_t size) 
+static inline uint32_t averageWearCount(char *location, uint32_t size)
 {
-    uint32_t swc = 0;
+    uint32_t awc = 0;
     uint32_t index = (uint64_t)(location - start_address) / BASE_SIZE;
     uint32_t end = index + size / BASE_SIZE;
     for (int i = index; i < end; i++) {
-        swc += volatile_metadata_list[i]->MWC;
+        awc += volatile_metadata_list[i]->WC;
     }
-    return swc;
-}
-
-static inline uint32_t averageWearCount(char *location, uint32_t size)
-{
-    uint32_t awc = sumWearCount(location, size) / (size / BASE_SIZE);
+    awc = awc / (size / BASE_SIZE);
     return awc;
 }
 
@@ -233,26 +240,28 @@ static inline uint32_t worstWearCount(char *location, uint32_t size)
     uint32_t index = (uint64_t)(location - start_address) / BASE_SIZE;
     uint32_t end = index + size / BASE_SIZE;
     for (int i = index; i < end; i++) {
-        if (wwc < volatile_metadata_list[i]->MWC)
-            wwc = volatile_metadata_list[i]->MWC;
+        if (wwc < volatile_metadata_list[i]->WC)
+            wwc = volatile_metadata_list[i]->WC;
     }
     return wwc;
 }
 
-static inline void removeListHeadFromFreeList(uint64_t offset, uint32_t index)
+
+static inline void removeListHeadFromFreeList(uint64_t location, uint32_t index)
 {
     // the indexed free_list shouldn't be empty
     ASSERT(free_lists[index]);
     list_head *lh = free_lists[index];
-    // find the list_head
-    if (lh->position == offset) { // if the list_head is the first list_head in the free_list
+    if (lh->position == location) { // if the list_head is the first list_head in the free_list
         if (lh->next) 
             free_lists[index] = lh->next;
         else 
             free_lists[index] = NULL;
+        // free this list_head
+        free(lh);
     } else { // the list_head is not the first list_head in the free_list
         list_head *prevlh;
-        while ( lh && lh->position != offset) {
+        while ( lh && lh->position != location) {
             prevlh = lh;
             lh = lh->next;
         }
@@ -263,26 +272,8 @@ static inline void removeListHeadFromFreeList(uint64_t offset, uint32_t index)
             prevlh->next = lh->next;
         else 
             prevlh->next = NULL;
+        // free this list_head
     }
-    
-    char *location = OFFSET_TO_PTR(lh->position);
-    header *hd = (header *)location;
-    
-    // ASSERT that the header's size is correct
-    if (index < NR_SIZES) {
-        ASSERT(-hd->size == (index + 1) * BASE_SIZE);
-    } else {
-        ASSERT(-hd->size > NR_SIZES * BASE_SIZE);
-    }
-
-    // subtract the sumWearCount of this list_head and reduce the free_lists size
-    uint32_t sumOfWearCount = sumWearCount(location, -hd->size);
-    list_wearcount_sum[index] -= sumOfWearCount;
-    lists_wearcount_sum -= sumOfWearCount;
-    free_lists_size[index] -= -hd->size / BASE_SIZE;
-    free_lists_size_sum -= -hd->size / BASE_SIZE;
-    // free this list_head
-    free(lh);
 }
 
 // Try to extend the given free location with neighbouring free location,
@@ -294,7 +285,7 @@ static inline void extendFreeLocation(char **location, uint32_t *size)
 
     makeZero(offset, *size);
 
-    n = isFreeForward(offset);
+    n = isFreeForwardWithSize(offset, *size);
 
     if (n * BASE_SIZE != *size) {
         // remove the forward list_head from its free_lists
@@ -329,11 +320,24 @@ static inline void insertFreeLocation(char *location, uint32_t size)
     int index;
 
     if (location + size >= free_zone && location < free_zone) {
+        // // merge with the free zone
+        // // iterate the memory blocks reversely, and merge from the block that all 
+        // // the back blocks' WC is less than WEAR_COUNT_LIMIT  
+        // uint64_t offset = PTR_TO_OFFSET(location);
+        // unsigned index = offset / BASE_SIZE;
+        // uint32_t end = index + size / BASE_SIZE;
+        // uint32_t i;
+        // for (i = end - 1; i >= index; i--) {
+        //     if (volatile_metadata_list[i]->WC > WEAR_COUNT_LIMIT) {
+        //         i++;
+        //         break;
+        //     }
+        // }
+        // char *new_location = OFFSET_TO_PTR(i * BASE_SIZE);
         free_zone = location;
         ((header*) location)->size = 0;
         mfence();
         clflush(location);
-        mfence();
         return;
     }
 
@@ -350,10 +354,8 @@ static inline void insertFreeLocation(char *location, uint32_t size)
     index = getBestFit(size);
     lh->position = (uint64_t)(location - start_address);
 
-    uint32_t sumOfWearCount = sumWearCount(location, size);
- 
 #ifdef AVERAGE_WEAR_COUNT
-    lh->wearcount = sumOfWearCount / (size / BASE_SIZE);
+    lh->wearcount = averageWearCount(location, size);
 #else
     lh->wearcount = worstWearCount(location, size);
 #endif
@@ -365,32 +367,56 @@ static inline void insertFreeLocation(char *location, uint32_t size)
     }
     else {
         list_head *tmp = free_lists[index];
-        // if this list_head is the least allocated one, insert this list_head at the first place
+        // if this list_head is the least allocated one, insert this list_head at the fisrt place
         if (tmp->wearcount >= lh->wearcount) { 
             lh->next = free_lists[index];
             free_lists[index] = lh;
-        } else {
-            list_head *prev;
-            while (tmp && tmp->wearcount < lh->wearcount) {
-                prev = tmp;
-                tmp = tmp->next;
-            }
-            if (tmp) {
-                prev->next = lh;
-                lh->next = tmp;
-            } else { // this list_head is the most allocated one, insert this list_head at the tail of the free_list
-                prev->next = lh;
-                lh->next = NULL;
+            return;
+        }
+        list_head *prev;
+        while (tmp && tmp->wearcount < lh->wearcount) {
+            prev = tmp;
+            tmp = tmp->next;
+        }
+        if (tmp) {
+            prev->next = lh;
+            lh->next = tmp;
+        } else { // this list_head is the most allocated one, insert this list_head at the tail of the free_list
+            prev->next = lh;
+            lh->next = NULL;
+        }
+    }
+}
+
+// split free blocks and only keep the blocks allocated less than WEAR_COUNT_LIMIT times
+static inline void splitAndInsertFreeBlocks(char *location, uint32_t size)
+{
+    ASSERT(!(size & BASE_SIZE_MASK));
+
+    uint32_t index = (uint64_t)(location - start_address) / BASE_SIZE;
+    uint32_t end = index + size / BASE_SIZE;
+    uint32_t tmpIndex = index;
+    uint32_t tmpSize;
+    char *tmpLocation;
+    uint32_t i;
+    for (i = index; i < end; i++) {
+        if (volatile_metadata_list[i]->WC >= WEAR_COUNT_LIMIT) {
+            if (tmpIndex == i) 
+                tmpIndex++;
+            else {
+                tmpLocation = OFFSET_TO_PTR(tmpIndex * BASE_SIZE);
+                tmpSize = (i - tmpIndex) * BASE_SIZE;
+                insertFreeLocation(tmpLocation, tmpSize);
+                tmpIndex = i + 1;
             }
         }
     }
-    // calculate list_wearcout_sum and increase the free_list_size
-    list_wearcount_sum[index] += sumOfWearCount;
-    lists_wearcount_sum += sumOfWearCount;
-    free_lists_size[index] += size / BASE_SIZE;
-    free_lists_size_sum += size / BASE_SIZE;
+    if (tmpIndex != i) {
+        tmpLocation = OFFSET_TO_PTR(tmpIndex * BASE_SIZE);
+        tmpSize = (i - tmpIndex) * BASE_SIZE;
+        insertFreeLocation(tmpLocation, tmpSize);
+    }
 }
-
 
 // Given a size, the function returns a pointer to a free region of that size. The region's actual
 // size (rounded to a  multiple of BASE_SIZE) is returned in the actualSize argument.
@@ -411,12 +437,13 @@ static char *getFreeLocation(uint32_t size, uint32_t *actSize)
                 continue;
             }
 
-            if (list_wearcount_sum[index] / free_lists_size[index] > list_wearcount_limit) {
+
+            if (free_lists[index]->wearcount >= WEAR_COUNT_LIMIT) {
                 index++;
                 continue;
             }
 
-            list_head *lh = free_lists[index];
+            list_head *tmp = free_lists[index];
             uint64_t location = free_lists[index]->position;
             uint32_t free_space;
 
@@ -428,19 +455,12 @@ static char *getFreeLocation(uint32_t size, uint32_t *actSize)
                 free_space = (index + 1) * BASE_SIZE;
                 ASSERT(-hd->size == free_space);
             } else {
-                free_space = -hd->size;
                 ASSERT(-hd->size > NR_SIZES * BASE_SIZE);
+                free_space = -hd->size;
             }
 
             free_lists[index] = free_lists[index]->next;
-
-            // subtract the sumWearCount of this list_head and reduce the free_lists size
-            uint32_t sumOfWearCount = sumWearCount((char *)OFFSET_TO_PTR(location), free_space);
-            list_wearcount_sum[index] -= sumOfWearCount;
-            lists_wearcount_sum -= sumOfWearCount;
-            free_lists_size[index] -= free_space / BASE_SIZE;
-            free_lists_size_sum -= free_space / BASE_SIZE;
-            free(lh);
+            free(tmp);
 
             // if the free_space is larger than actualSize, split the free_space
             if (free_space > actualSize) {
@@ -450,7 +470,8 @@ static char *getFreeLocation(uint32_t size, uint32_t *actSize)
             }
             freeLocation = OFFSET_TO_PTR(location);
         }
-    }  else {
+
+    } else {
         if (size & BASE_SIZE_MASK) {
             actualSize = (size & ~BASE_SIZE_MASK) + BASE_SIZE;
         } else {
@@ -458,7 +479,7 @@ static char *getFreeLocation(uint32_t size, uint32_t *actSize)
         }
 
         // find free location from the last free_list
-        if (free_lists[NR_SIZES] && list_wearcount_sum[index] / free_lists_size[index] < list_wearcount_limit) {
+        if (free_lists[NR_SIZES] && free_lists[NR_SIZES]->wearcount < WEAR_COUNT_LIMIT) {
             list_head *lh = free_lists[NR_SIZES];
             list_head *prevlh = NULL;
             do {
@@ -478,12 +499,6 @@ static char *getFreeLocation(uint32_t size, uint32_t *actSize)
                         else 
                             prevlh->next = NULL;
                     }
-                    // subtract the sumWearCount of this list_head and reduce the free_lists size
-                    uint32_t sumOfWearCount = sumWearCount((char *)OFFSET_TO_PTR(lh->position), -hd->size);
-                    list_wearcount_sum[index] -= sumOfWearCount;
-                    lists_wearcount_sum -= sumOfWearCount;
-                    free_lists_size[index] -= -hd->size / BASE_SIZE;
-                    free_lists_size_sum -= -hd->size / BASE_SIZE;
                     // free this list_head
                     free(lh);
 
@@ -502,7 +517,6 @@ static char *getFreeLocation(uint32_t size, uint32_t *actSize)
             } while (!freeLocation && lh);
         }
     }
-
     *actSize = actualSize;
 
     // can not find fit block in the free_lists, allocate memory at the free_zone
@@ -522,7 +536,7 @@ static char *getFreeLocation(uint32_t size, uint32_t *actSize)
 }
 
 // Initialization function
-void walloc_init(void) {
+void newalloc_init(void) {
     int i;
 #ifdef _GNU_SOURCE_
     start_address = (char*) mmap(NULL, NEW_ALLOC_PAGES * PAGE_SIZE, PROT_READ | PROT_WRITE,
@@ -545,8 +559,7 @@ void walloc_init(void) {
     for (int i = 0; i < volatile_metadata_list_size; i++) {
         volatile_metadata_list[i] = (volatile_metadata *)((volatile_metadata *)volatile_metadata_start_addr + i);
         volatile_metadata_list[i]->state = 0;
-        volatile_metadata_list[i]->DWC = 0;
-        volatile_metadata_list[i]->MWC = 0;
+        volatile_metadata_list[i]->WC = 0;
     }
 
     // initialize free_list
@@ -555,14 +568,14 @@ void walloc_init(void) {
     } 
 }
 
-void walloc_exit(void)
+void newalloc_exit(void)
 {
     if (munmap((void*) start_address, nr_pages)) {
         perror("MUNMAP FAILED");
     }
 }
 
-void *walloc(uint32_t size) 
+void *newalloc(uint32_t size) 
 {
     char *location;
     uint32_t actualSize = 0;
@@ -575,16 +588,11 @@ void *walloc(uint32_t size)
     ((header *) location)->size = actualSize;
 
     addMetadataWearCount((uint64_t)(location - start_address), actualSize / BASE_SIZE);
-
-    if (free_lists_size_sum > 0 && lists_wearcount_sum / free_lists_size_sum > increase_wearcount_threshold) {
-        list_wearcount_limit = 2 * LIST_WEARCOUNT_LIMIT; 
-        // increase_wearcount_threshold += LIST_WEARCOUNT_LIMIT;
-    }
     
     return (void *)(location + sizeof(header));
 }
 
-int wfree(void *addr) 
+int newfree(void *addr) 
 {
     char *location = ((char *)addr) - sizeof(header);
     uint32_t size;
@@ -595,16 +603,21 @@ int wfree(void *addr)
 
     size = (uint32_t)(((header *)location)->size);
 
-    extendFreeLocation(&location, &size);
-    insertFreeLocation(location, size); 
+//     // if the wearcount is large than WEAR_COUNT_LIMIT, do not release the memory
+//     uint32_t wearcount;
+// #ifdef AVERAGE_WEAR_COUNT
+//     wearcount = averageWearCount(location, size);
+// #else
+//     wearcount = worstWearCount(location, size);
+// #endif
+//     if (wearcount >= WEAR_COUNT_LIMIT)
+//         return;
 
-    if (free_lists_size_sum > 0 && lists_wearcount_sum / free_lists_size_sum > increase_wearcount_threshold) {
-        list_wearcount_limit = 2 * LIST_WEARCOUNT_LIMIT; 
-        // increase_wearcount_threshold += LIST_WEARCOUNT_LIMIT;
-    }
+    extendFreeLocation(&location, &size);
+    splitAndInsertFreeBlocks(location, size); 
 }
 
-void walloc_print(void) 
+void newalloc_print(void) 
 {
     unsigned i;
 
@@ -632,4 +645,17 @@ void walloc_print(void)
         }
         printf("NULL\n");
     }
+}
+
+void newalloc_wearcount_print(void)
+{
+    unsigned i;
+
+    for (i = 0; i < (end_address - start_address) / BASE_SIZE; i++) {
+        if (!(i % (PAGE_SIZE / BASE_SIZE))) {
+            printf("\n");
+        }
+        printf(" %d ", volatile_metadata_list[i]->WC);
+    }
+    printf("\n");
 }

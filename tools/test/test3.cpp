@@ -24,7 +24,7 @@ vector<string> split(const string& s, const std::string& c)
     return v;
 }
 
-int main() {
+void getMaxWearCount() {
     const char *testfile = "/home/liwei/Workspace/Projects/wear-leveling/tools/wearcount/output.txt";
     int max = 0;
     int i, j, tmp_i, tmp_j; // max wearcount index
@@ -46,4 +46,28 @@ int main() {
         }
     }
     cout << "max wearcount : " << max << ", index: (" << i << "," << j << ")" << endl;
+}
+
+void vectorTest() {
+
+    vector<vector<int>> intVectors;
+    vector<int> tmpVector;
+    for (int i = 0; i < 10; i++) {
+        if (i % 3 == 0 && i != 0) {
+            intVectors.push_back(tmpVector);
+            tmpVector.clear();
+        }
+        tmpVector.push_back(i);
+    }
+    for (vector<vector<int>>::iterator iter1 = intVectors.begin(); iter1 != intVectors.end(); iter1++) {
+        (*iter1).at(2) += 5;
+        for (vector<int>::iterator iter2 = (*iter1).begin(); iter2 != (*iter1).end(); iter2++) {
+            cout << (*iter2) << " ";
+        }
+        cout << endl;
+    }
+}
+
+int main() {
+    vectorTest();
 }

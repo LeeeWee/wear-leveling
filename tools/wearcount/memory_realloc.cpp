@@ -10,9 +10,16 @@
 #include "galloc/galloc.h"
 #include "nvmalloc.h"
 #include "walloc.h"
+#include "newalloc.h"
 
 using namespace std;
 
+#define GLIBC_MALLOC
+
+#ifdef NEWALLOC
+#define _MALLOC(size) newalloc(size)
+#define _FREE(p) newfree(p)
+#else
 #ifdef NVMALLOC
 #define _MALLOC(size) nvmalloc(size)
 #define _FREE(p) nvfree(p)
@@ -21,7 +28,7 @@ using namespace std;
 #define _MALLOC(size) walloc(size)
 #define _FREE(p) wfree(p)
 #else 
-#ifdef MALLOC
+#ifdef GLIBC_MALLOC
 #define _MALLOC(size) malloc(size)
 #define _FREE(p) free(p)
 #else 
@@ -37,8 +44,9 @@ using namespace std;
 #define _MALLOC(size) bfmalloc(size)
 #define _FREE(p) basefree(p)
 #else 
-#define _MALLOC(size) walloc(size)
-#define _FREE(p) wfree(p)
+#define _MALLOC(size) newalloc(size)
+#define _FREE(p) newfree(p)
+#endif
 #endif
 #endif
 #endif
@@ -95,13 +103,17 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
-#ifdef  NVMALLOC
+#ifdef NEWALLOC
+    newalloc_init();
+#else
+#ifdef NVMALLOC
     nvmalloc_init(100, 100);
 #else
 #ifdef WALLOC
     walloc_init();
 #else
     walloc_init();
+#endif
 #endif
 #endif
 
@@ -155,6 +167,9 @@ int main(int argc, char **argv) {
         }
     }
 
+#ifdef NEWALLOC
+    newalloc_exit();
+#else
 #ifdef  NVMALLOC
     nvmalloc_exit();
 #else
@@ -162,6 +177,7 @@ int main(int argc, char **argv) {
     walloc_exit();
 #else
     walloc_exit();
+#endif
 #endif
 #endif
 

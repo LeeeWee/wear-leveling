@@ -29,6 +29,12 @@ struct MemoryWrites {
 
 typedef struct MemoryWrites * MemWrites;
 
+struct MemWritesAscendingComparator {
+    bool operator()(const MemWrites& lhs, const MemWrites& rhs) const {
+        return lhs->address < rhs->address;
+    }
+};
+
 // convert string to the specific type number
 template <typename NUM>
 NUM hexstr2num(const char *hexstr) {
@@ -248,7 +254,7 @@ int *calculateWearcount(vector<MemWrites> memwrites, UINT64 startAddress, UINT64
         }
     }
 
-    // calculate the sum of wear by the size of BLOCK_SIZE
+    // calculate the wear count by the size of BLOCK_SIZE
     int times = BLOCK_SIZE / ALIGNMENT;
     int *blocks_wearcount = new int[blocks_wearcount_size]();
     for (int j = 0; j < blocks_wearcount_size; j++) {
@@ -259,6 +265,71 @@ int *calculateWearcount(vector<MemWrites> memwrites, UINT64 startAddress, UINT64
                 blocks_wearcount[j] = wearcount[k];
         }
     }
+    return blocks_wearcount;
+}
+
+
+// sort data writes by address
+int *calculateMallocWearcount(vector<MemWrites> dataWrites) {
+    std::sort(dataWrites.begin(), dataWrites.end(), MemWritesAscendingComparator());
+    vector<vector<int>> splitLineWearCounts;
+    vector<MemWrites>::iterator iter;
+    UINT64 startAddress = dataWrites.at(0)->address;
+    UINT64 tmpAddress = startAddress;
+    vector<int> tmpWearCount;
+    for (iter = dataWrites.begin(); iter != dataWrites.end(); iter++) {
+        MemWrites dw = (*iter);
+        // when this data write's address is far from previous address, split 
+        if (dw->address - tmpAddress > 0x1000) {
+            splitLineWearCounts.push_back(tmpWearCount);
+            tmpWearCount.clear();
+            startAddress = dw->address;
+        }
+
+        // add wear count
+        int startLineNo = (dw->address - startAddress) / ALIGNMENT;
+        int endLineNo = (dw->address + dw->size - startAddress) % ALIGNMENT == 0 ?
+            (dw->address + dw->size - startAddress) / ALIGNMENT - 1 : (dw->address + dw->size - startAddress) / ALIGNMENT;
+        while (tmpWearCount.size() <= endLineNo + 1) {
+            tmpWearCount.push_back(0);
+        }
+        for (int i = startLineNo; i <= endLineNo; i++) {
+            tmpWearCount.at(i) += 1;
+        }
+
+        tmpAddress = dw->address;
+    }
+    splitLineWearCounts.push_back(tmpWearCount);
+
+    // calculate blocks wear count using worst wear count
+    int times = BLOCK_SIZE / ALIGNMENT;
+    blocks_wearcount_size = 0;
+    int sizes[splitLineWearCounts.size()] = {0};
+    int index;
+    for (index = 0; index < splitLineWearCounts.size(); index++) {
+        vector<int> tmpWearCounts = splitLineWearCounts.at(index);
+        sizes[index] = tmpWearCounts.size() / times == 0 ?
+            tmpWearCounts.size() / times : tmpWearCounts.size() / times + 1;
+        blocks_wearcount_size += sizes[index];
+    }
+    int *blocks_wearcount = new int[blocks_wearcount_size];
+    int offset = 0;
+    int i, j, tmpMaxWearCount;
+    for (index = 0; index < splitLineWearCounts.size(); index++) {
+        vector<int> tmpWearCounts = splitLineWearCounts.at(index);
+        for (i = 0; i < sizes[index]; i++) {
+            tmpMaxWearCount = 0;
+            for (int j = i * times; j < (i + 1) * times; j++) {
+            if (j >= tmpWearCounts.size())
+                break;
+            if (tmpWearCounts[j] > tmpMaxWearCount) 
+                tmpMaxWearCount = tmpWearCounts[j];
+            }
+            blocks_wearcount[offset + i] = tmpMaxWearCount;
+        }
+        offset += sizes[index];
+    }
+
     return blocks_wearcount;
 }
 
@@ -312,13 +383,16 @@ int main(int argc, char **argv) {
     char *memops_file;
     bool consideringMetadata = false;
     bool removeLargeMemOp = false;
+    bool forMalloc = false;
     if (argc > 2) {
         memops_file = argv[1];
-        for (int i = 2; i <= argc; i++) {
-            if (argv[i] == "-cm") 
+        for (int i = 2; i < argc; i++) {
+            if (strcmp(argv[i], "-cm") == 0) 
                 consideringMetadata = true;
-            if (argv[i] == "-rl")
+            if (strcmp(argv[i], "-rl") == 0)
                 removeLargeMemOp = true;
+            if (strcmp(argv[i], "-malloc") == 0)
+                forMalloc = true;
         }
     } else if (argc > 1) {
         memops_file = argv[1];
@@ -351,7 +425,14 @@ int main(int argc, char **argv) {
     cout << "getting data writes..." << endl;
     vector<MemWrites> dataWrites = getDataWrites(newMemOperations);
     
-    
+    if (forMalloc) {
+        cout << "calculating wearcount..." << endl;
+        int *data_blocks_wearcount = calculateMallocWearcount(dataWrites);
+        cout << "saving wearcout info to file..." << endl;
+        saveWearcount2File(wearcount_file, data_blocks_wearcount);
+        return 0;
+    }
+
     UINT64 startAddress, endAddress;
 
     if (consideringMetadata) {
@@ -370,6 +451,7 @@ int main(int argc, char **argv) {
         saveWearcount2File(wearcount_file, metadata_blocks_wearcount, data_blocks_wearcount);
     }
     else {
+
         // get the start address and end address
         getStartAndEndAddress(dataWrites, startAddress, endAddress);
         cout << hex << "startAddress: " << startAddress << ", endAddress: " << endAddress << endl;

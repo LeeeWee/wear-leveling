@@ -35,6 +35,5 @@ int main() {
     printf("sizeof(double): %lu\n", sizeof(double));
 
 
-
     return 0;
 }
