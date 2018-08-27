@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <stdint.h>
 
+#define MERGE_WITH_TOP_CHUNK
 
 #ifdef DEBUG
 #define ASSERT(x) \
@@ -28,8 +29,8 @@
 #define BASE_SIZE_MASK  (BASE_SIZE - 1)
 #define NR_SIZES (4 * 1024 / BASE_SIZE)
 
-#define LIST_WEARCOUNT_LIMIT 100
-#define INCREASE_LIMIT_THRESHOLD 100
+#define LIST_WEARCOUNT_LIMIT 200
+#define INCREASE_LIMIT_THRESHOLD 200
 
 static char *start_address;
 static char *free_zone;
@@ -328,6 +329,8 @@ static inline void insertFreeLocation(char *location, uint32_t size)
     list_head *lh;
     int index;
 
+    // if the free blocks is adjacent to the top chunk, merge with top chunk
+#ifdef MERGE_WITH_TOP_CHUNK
     if (location + size >= free_zone && location < free_zone) {
         free_zone = location;
         ((header*) location)->size = 0;
@@ -336,6 +339,7 @@ static inline void insertFreeLocation(char *location, uint32_t size)
         mfence();
         return;
     }
+#endif
 
     nh = (header *)location;
     nh->size = -(int32_t)size;
@@ -421,6 +425,15 @@ static char *getFreeLocation(uint32_t size, uint32_t *actSize)
             uint32_t free_space;
 
             header *hd = (header *)OFFSET_TO_PTR(location);
+
+            // DEBUG
+            uint32_t begin = location / BASE_SIZE;
+            uint32_t end = begin + index;
+            for (int i = begin; i < end; i++) {
+                if (volatile_metadata_list[i]->MWC > 12850) {
+                    // printf("offset: %ull, index: %u, i: %d\n", location, index, i);
+                }   
+            }
             
             //test that the free_space is correct
             ASSERT(hd->size < 0);
@@ -484,8 +497,6 @@ static char *getFreeLocation(uint32_t size, uint32_t *actSize)
                     lists_wearcount_sum -= sumOfWearCount;
                     free_lists_size[index] -= -hd->size / BASE_SIZE;
                     free_lists_size_sum -= -hd->size / BASE_SIZE;
-                    // free this list_head
-                    free(lh);
 
                     // if the free_space is larger than actualSize, split the free_space
                     if (-hd->size > actualSize) {
@@ -494,6 +505,9 @@ static char *getFreeLocation(uint32_t size, uint32_t *actSize)
                         insertFreeLocation(forwardLocation, size);
                     }
                     freeLocation = OFFSET_TO_PTR(lh->position);
+                    
+                    // free this list_head
+                    free(lh);
 
                 } else {
                     prevlh = lh;
@@ -576,10 +590,10 @@ void *walloc(uint32_t size)
 
     addMetadataWearCount((uint64_t)(location - start_address), actualSize / BASE_SIZE);
 
-    if (free_lists_size_sum > 0 && lists_wearcount_sum / free_lists_size_sum > increase_wearcount_threshold) {
-        list_wearcount_limit = 2 * LIST_WEARCOUNT_LIMIT; 
-        // increase_wearcount_threshold += LIST_WEARCOUNT_LIMIT;
-    }
+    // if (free_lists_size_sum > 0 && lists_wearcount_sum / free_lists_size_sum > increase_wearcount_threshold) {
+    //     list_wearcount_limit = 2 * LIST_WEARCOUNT_LIMIT; 
+    //     // increase_wearcount_threshold += LIST_WEARCOUNT_LIMIT;
+    // }
     
     return (void *)(location + sizeof(header));
 }
@@ -595,23 +609,13 @@ int wfree(void *addr)
 
     size = (uint32_t)(((header *)location)->size);
 
-    // if the wearcount is large than WEAR_COUNT_LIMIT, do not release the memory
-    uint32_t wearcount;
-#ifdef AVERAGE_WEAR_COUNT
-    wearcount = averageWearCount(location, size);
-#else
-    wearcount = worstWearCount(location, size);
-#endif
-    if (wearcount >= WEAR_COUNT_LIMIT)
-        return;
-
     extendFreeLocation(&location, &size);
     insertFreeLocation(location, size); 
 
-    if (free_lists_size_sum > 0 && lists_wearcount_sum / free_lists_size_sum > increase_wearcount_threshold) {
-        list_wearcount_limit = 2 * LIST_WEARCOUNT_LIMIT; 
-        // increase_wearcount_threshold += LIST_WEARCOUNT_LIMIT;
-    }
+    // if (free_lists_size_sum > 0 && lists_wearcount_sum / free_lists_size_sum > increase_wearcount_threshold) {
+    //     list_wearcount_limit = 2 * LIST_WEARCOUNT_LIMIT; 
+    //     // increase_wearcount_threshold += LIST_WEARCOUNT_LIMIT;
+    // }
 }
 
 void walloc_print(void) 

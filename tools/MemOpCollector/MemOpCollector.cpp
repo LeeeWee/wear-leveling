@@ -5,6 +5,7 @@
 #include <cstring>
 #include <sstream>
 #include <map>
+#include <set>
 #include <climits>
 
 
@@ -32,6 +33,9 @@ vector<string> split(char str[]) {
     return res;
 }
 
+static int countOfLines = 1;
+static set<UINT64> mallocAddrSet;
+
 void processRoutines(ifstream &infile, MemOp memop, vector<MemOp> &memoryOperations) {
     static MemOp mallocMemop = new MemOperation();
     mallocMemop->memOpType = MALLOC;
@@ -39,6 +43,9 @@ void processRoutines(ifstream &infile, MemOp memop, vector<MemOp> &memoryOperati
     memop->endMemAddr = ULLONG_MAX;
     char line[100];
     while (infile.getline(line, 100)) {
+        // countOfLines++;
+        // if (countOfLines > 101082)
+        //     cout << countOfLines << endl;
         if (strncmp("Exit", line, 4) == 0) {
             // get exit routine name
             vector<string> splits = split(line);
@@ -48,6 +55,8 @@ void processRoutines(ifstream &infile, MemOp memop, vector<MemOp> &memoryOperati
             if (memop->rtnName != exitRtnName) {
                 vector<MemOp>::reverse_iterator riter;
                 for (riter = memoryOperations.rbegin(); riter != memoryOperations.rend(); riter++) {
+                    if ((*riter)->memOpType != STACK_FRAME_ALLOC)
+                        continue;
                     if ((*riter)->rtnName == exitRtnName && (*riter)->size <= 0) {
                         break;
                     }
@@ -104,6 +113,8 @@ void processRoutines(ifstream &infile, MemOp memop, vector<MemOp> &memoryOperati
                 vector<string> retSplits = split(line);
                 mallocMemop->memAddr = hexstr2num<UINT64>(retSplits[2].c_str());
                 memoryOperations.push_back(mallocMemop);
+                // insert this memAddr to mallocAddrSet
+                mallocAddrSet.insert(mallocMemop->memAddr);
                 mallocMemop = new MemOperation();
             } else {
                 vector<string> splits = split(line);
@@ -111,11 +122,17 @@ void processRoutines(ifstream &infile, MemOp memop, vector<MemOp> &memoryOperati
             }
         }
         else if (strncmp("free", line, 4) == 0) {
-            MemOp freeMemop = new MemOperation();
-            freeMemop->memOpType = FREE;
             vector<string> retSplits = split(line);
-            freeMemop->memAddr = hexstr2num<UINT64>(retSplits[1].c_str());
-            memoryOperations.push_back(freeMemop);
+            UINT64 memAddr = hexstr2num<UINT64>(retSplits[1].c_str());
+            // if the memAddr is not malloced, omit this free operation, else erase the memAddr from mallocAddrSet
+            set<UINT64>::iterator iter;
+            if ((iter = mallocAddrSet.find(memAddr)) != mallocAddrSet.end()) {
+                MemOp freeMemop = new MemOperation();
+                freeMemop->memOpType = FREE;
+                freeMemop->memAddr = memAddr;
+                memoryOperations.push_back(freeMemop);
+                mallocAddrSet.erase(memAddr);
+            } 
         }
         else {
             if (strncmp("write", line, 5) == 0) {
@@ -131,13 +148,13 @@ void processRoutines(ifstream &infile, MemOp memop, vector<MemOp> &memoryOperati
                 memop->stackOperations.push_back(stackop);
             } 
             else if (strncmp("read", line, 4) == 0) {
-                // StackOp stackop = new StackOperation();
-                // stackop->stackOpType = STACK_READ;
-                // // split line
-                // vector<string> splits = split(line);
-                // stackop->stackAddr = hexstr2num<UINT64>(splits[1].c_str());
-                // stackop->size = hexstr2num<UINT16>(splits[2].c_str());
-                // memop->stackOperations.push_back(stackop);
+                StackOp stackop = new StackOperation();
+                stackop->stackOpType = STACK_READ;
+                // split line
+                vector<string> splits = split(line);
+                stackop->stackAddr = hexstr2num<UINT64>(splits[1].c_str());
+                stackop->size = hexstr2num<UINT16>(splits[2].c_str());
+                memop->stackOperations.push_back(stackop);
             }
         }
     } 
@@ -180,6 +197,7 @@ void removeInvalidRoutines(vector<MemOp> &memoryOperations) {
 // get memory operations from given file
 vector<MemOp> getMemoryOperations(const char *filename) {
     vector<MemOp> memoryOperations;
+    memoryOperations.reserve(640000);
     ifstream infile(filename);
     char line[100];
     if (!infile) {

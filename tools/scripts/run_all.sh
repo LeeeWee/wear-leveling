@@ -6,11 +6,11 @@ PLOTWRITES_DIR=${WORK_DIR}/tools/plot_memory_writes
 OUTPUT_DIR=${WORK_DIR}/output
 
 MALLOC_FLAG='-DGLIBC_MALLOC'
-MEMOPS_FILE=${OUTPUT_DIR}/MemOpCollector/mibench/network_patricia.memops
+MEMOPS_FILE=${OUTPUT_DIR}/MemOpCollector/mediabench2/jpg2000dec.memops
 WEARCOUNT_OUTFILE=${OUTPUT_DIR}/wearcount/wearcount.out
 ALLOC_DISTRIBUTION_OUTFILE=${OUTPUT_DIR}/wearcount/alloc_distribution.out
-MEMWRITES_PLOT_FIGURE=${WORK_DIR}/output/wearcount/mibench/network_patricia_malloc.png
-ALLOC_DISTRIBUTION_PLOT_FIGURE=${WORK_DIR}/output/wearcount/mibench/network_patricia_malloc_distribution.png
+MEMWRITES_PLOT_FIGURE=${WORK_DIR}/output/wearcount/mediabench2/jpg2000dec_malloc.png
+ALLOC_DISTRIBUTION_PLOT_FIGURE=${WORK_DIR}/output/wearcount/mediabench2/jpg2000dec_malloc_distribution.png
 
 #cd wearcount_dir
 echo cd ${WEARCOUNT_DIR}
@@ -30,15 +30,29 @@ make MALLOC_FLAG=${MALLOC_FLAG}
 
 # execute memory_realoc
 echo memory reallocating...
-${WEARCOUNT_DIR}/memory_realloc ${MEMOPS_FILE} 
+${WEARCOUNT_DIR}/memory_realloc ${MEMOPS_FILE} -rl
 
 # execute wearcount
 # echo cd ${WEARCOUNT_DIR}
 # cd ${WEARCOUNT_DIR}
-${WEARCOUNT_DIR}/wearcount ${MEMOPS_FILE} -malloc
+if [ ${MALLOC_FLAG} == "-DGLIBC_MALLOC" ]
+then 
+    echo ${WEARCOUNT_DIR}/wearcount ${MEMOPS_FILE} -malloc -rl
+    ${WEARCOUNT_DIR}/wearcount ${MEMOPS_FILE} -malloc -rl
+else 
+    echo ${WEARCOUNT_DIR}/wearcount ${MEMOPS_FILE} -rl
+    ${WEARCOUNT_DIR}/wearcount ${MEMOPS_FILE} -rl
+fi
 
 # execute allocate_dustribution
-${WEARCOUNT_DIR}/allocate_distribution
+if [ ${MALLOC_FLAG} == "-DGLIBC_MALLOC" ]
+then 
+    echo ${WEARCOUNT_DIR}/allocate_distribution -malloc
+    ${WEARCOUNT_DIR}/allocate_distribution -malloc
+else 
+    echo ${WEARCOUNT_DIR}/allocate_distribution 
+    ${WEARCOUNT_DIR}/allocate_distribution 
+fi
 
 #plot memory writes
 echo cd ${PLOTWRITES_DIR}

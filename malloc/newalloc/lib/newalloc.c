@@ -208,6 +208,8 @@ static inline int getMoreMemory(uint32_t size)
 
     nr_pages += newPages;
 
+    printf("get_more_memory mmap: %p ~ %p\n", end_address - newPages * PAGE_SIZE, end_address);
+
     // realloc volatile_metadata_list
     new_volatile_metadata_list_size = volatile_metadata_list_size + newPages * PAGE_SIZE / BASE_SIZE;
     volatile_metadata_list = (volatile_metadata **)realloc(volatile_metadata_list, new_volatile_metadata_list_size * sizeof(volatile_metadata *));
@@ -499,9 +501,7 @@ static char *getFreeLocation(uint32_t size, uint32_t *actSize)
                         else 
                             prevlh->next = NULL;
                     }
-                    // free this list_head
-                    free(lh);
-
+                    
                     // if the free_space is larger than actualSize, split the free_space
                     if (-hd->size > actualSize) {
                         char *forwardLocation = OFFSET_TO_PTR(lh->position + actualSize);
@@ -510,6 +510,8 @@ static char *getFreeLocation(uint32_t size, uint32_t *actSize)
                     }
                     freeLocation = OFFSET_TO_PTR(lh->position);
 
+                    // free this list_head
+                    free(lh);
                 } else {
                     prevlh = lh;
                     lh = lh->next;
@@ -551,6 +553,8 @@ void newalloc_init(void) {
     nr_pages = NEW_ALLOC_PAGES;
     free_zone = start_address;
     end_address = start_address + NEW_ALLOC_PAGES * PAGE_SIZE;
+
+    printf("newalloc_init mmap: %p ~ %p\n", start_address, end_address);
 
     // allocate memory for volatile_metadata_list
     volatile_metadata_list_size = NEW_ALLOC_PAGES * PAGE_SIZE / BASE_SIZE;

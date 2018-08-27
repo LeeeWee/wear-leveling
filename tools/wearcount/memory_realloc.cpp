@@ -14,8 +14,6 @@
 
 using namespace std;
 
-#define GLIBC_MALLOC
-
 #ifdef NEWALLOC
 #define _MALLOC(size) newalloc(size)
 #define _FREE(p) newfree(p)
@@ -61,7 +59,7 @@ void removeLargeOperations(vector<MemOp> &memOperations) {
     vector<MemOp>::iterator iter = memOperations.begin();
     while (iter != memOperations.end()) {
         if ((*iter)->memOpType == MALLOC || (*iter)->memOpType == STACK_FRAME_ALLOC) {
-            if ((*iter)->size > 1024) {
+            if ((*iter)->size > 4096) {
                 if ((*iter)->memOpType == MALLOC) deletedAddr.insert((*iter)->memAddr);
                 else deletedAddr.insert((*iter)->endMemAddr);
                 iter = memOperations.erase(iter);
@@ -87,8 +85,8 @@ int main(int argc, char **argv) {
     bool removeLargeMemOP = false;
     if (argc > 2) {
         filename = argv[1];
-        for (int i = 2; i <= argc; i++) {
-            if (argv[i] == "-rl")
+        for (int i = 2; i < argc; i++) {
+            if (strcmp(argv[i], "-rl") == 0)
                 removeLargeMemOP = true;
         }
     } else if (argc > 1) {
@@ -112,7 +110,7 @@ int main(int argc, char **argv) {
 #ifdef WALLOC
     walloc_init();
 #else
-    walloc_init();
+    newalloc_init();
 #endif
 #endif
 #endif
@@ -131,7 +129,9 @@ int main(int argc, char **argv) {
     // map the old address to the new address
     map<UINT64, UINT64> addrmap; 
     vector<MemOp>::iterator iter;
+    int count = 0;
     for (iter = memOperations.begin(); iter != memOperations.end(); iter++) {
+        count++;
         if ((*iter)->memOpType == MALLOC) {
             void *p = _MALLOC((*iter)->size);
             addrmap.insert(pair<UINT64, UINT64>((*iter)->memAddr, (UINT64)p));
@@ -149,7 +149,12 @@ int main(int argc, char **argv) {
         if ((*iter)->memOpType == FREE || (*iter)->memOpType == STACK_FRAME_FREE) {
             if ((*iter)->memAddr == ULLONG_MAX)
                 continue;
-            
+            if ((*iter)->memAddr == 0)
+                continue;
+
+            if ((*iter)->rtnName == "main")
+                cout << "main" << endl;
+
             map<UINT64, UINT64>::iterator it = addrmap.find((*iter)->memAddr);
             if (it == addrmap.end()) {
                 outfile << "Free unallocated memory!" << endl;
@@ -176,7 +181,7 @@ int main(int argc, char **argv) {
 #ifdef WALLOC
     walloc_exit();
 #else
-    walloc_exit();
+    newalloc_exit();
 #endif
 #endif
 #endif

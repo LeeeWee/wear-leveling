@@ -23,6 +23,7 @@ int main(int argc, char **argv) {
     // printMemOperations(memOperations);
 
     int allocSizeArray[34] = {0};
+    int maxSize = 0;
     
     vector<MemOp>::iterator iter;
     for (iter = memOperations.begin(); iter != memOperations.end(); iter++) {
@@ -30,6 +31,8 @@ int main(int argc, char **argv) {
         if (memop->memOpType == FREE || memop->memOpType == STACK_FRAME_FREE) 
             continue;
         int size = memop->size;
+        if (size > maxSize)
+            maxSize = size;
         int idx;
         if (size > 4 * 1024)
             idx = 33;
@@ -46,4 +49,5 @@ int main(int argc, char **argv) {
     }
     cout << "over 1024 bytes: " << allocSizeArray[32] << endl;
     cout << "over 4 kilobytes: " << allocSizeArray[33] << endl;
+    cout << "maxSize: " << maxSize << endl;
 }

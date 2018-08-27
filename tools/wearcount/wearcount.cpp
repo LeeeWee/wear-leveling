@@ -103,6 +103,8 @@ vector<MemOp> mapMemOps2NewAddress(vector<MemOp> &memOperations, const char *mem
             continue;
         if (memop->memOpType == STACK_FRAME_FREE && memop->memAddr == ULLONG_MAX)
             continue;
+        if (memop->memOpType == FREE && memop->memAddr == 0)
+            continue;
         // read line
         getline(infile, line);
         string opType = line.substr(0, line.find("\t"));
@@ -312,7 +314,7 @@ int *calculateMallocWearcount(vector<MemWrites> dataWrites) {
             tmpWearCounts.size() / times : tmpWearCounts.size() / times + 1;
         blocks_wearcount_size += sizes[index];
     }
-    int *blocks_wearcount = new int[blocks_wearcount_size];
+    int *blocks_wearcount = new int[blocks_wearcount_size]();
     int offset = 0;
     int i, j, tmpMaxWearCount;
     for (index = 0; index < splitLineWearCounts.size(); index++) {
@@ -359,7 +361,7 @@ void removeLargeOperations(vector<MemOp> &memOperations) {
     vector<MemOp>::iterator iter = memOperations.begin();
     while (iter != memOperations.end()) {
         if ((*iter)->memOpType == MALLOC || (*iter)->memOpType == STACK_FRAME_ALLOC) {
-            if ((*iter)->size > 1024) {
+            if ((*iter)->size > 4096) {
                 if ((*iter)->memOpType == MALLOC) deletedAddr.insert((*iter)->memAddr);
                 else deletedAddr.insert((*iter)->endMemAddr);
                 iter = memOperations.erase(iter);

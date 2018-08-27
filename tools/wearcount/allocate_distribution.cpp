@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <iostream>
 #include <fstream>
-#include <string>
+#include <string.h>
 #include <sstream>
 #include <map>
 #include <set>
@@ -27,6 +27,12 @@ struct AllocateRecord {
 };
 
 typedef struct AllocateRecord * AllocRecord;
+
+struct AllocRecordAscendingComparator {
+    bool operator()(const AllocRecord& lhs, const AllocRecord& rhs) const {
+        return lhs->address < rhs->address;
+    }
+};
 
 // convert string to the specific type number
 template <typename NUM>
@@ -109,6 +115,59 @@ int *calculateAllocateDistribution(vector<AllocRecord> allocateRecords, uint64_t
     return distribution;
 }
 
+int *calculateAllocateDistributionForMalloc(vector<AllocRecord> allocateRecords) {
+    std::sort(allocateRecords.begin(), allocateRecords.end(), AllocRecordAscendingComparator());
+    vector<vector<int>> splitDistributions;
+    vector<AllocRecord>::iterator iter;
+    uint64_t startAddress = allocateRecords.at(0)->address;
+    uint64_t tmpAddress = startAddress;
+    vector<int> tmpDistribution;
+    for (iter = allocateRecords.begin(); iter != allocateRecords.end(); iter++) {
+        AllocRecord ad = (*iter);
+        // when this data write's address is far from previous address, split 
+        if (ad->address - tmpAddress > 0x1000) {
+            splitDistributions.push_back(tmpDistribution);
+            tmpDistribution.clear();
+            startAddress = ad->address;
+        }
+
+        int startLineNo = (ad->address - startAddress) / BLOCK_SIZE;
+        int endLineNo = (ad->address + ad->size - startAddress) % BLOCK_SIZE == 0 ?
+            (ad->address + ad->size - startAddress) / BLOCK_SIZE - 1 : (ad->address + ad->size - startAddress) / BLOCK_SIZE;
+        while (tmpDistribution.size() <= endLineNo + 1) {
+            tmpDistribution.push_back(0);
+        }
+        for (int i = startLineNo; i <= endLineNo; i++) {
+            tmpDistribution.at(i) += 1;
+        }
+
+        tmpAddress = ad->address;
+    }
+    splitDistributions.push_back(tmpDistribution);
+
+    // calculate blocks wear count using worst wear count
+    distribution_size = 0;
+    int sizes[splitDistributions.size()] = {0};
+    int index;
+    for (index = 0; index < splitDistributions.size(); index++) {
+        vector<int> tmpDistribution = splitDistributions.at(index);
+        sizes[index] = tmpDistribution.size();
+        distribution_size += sizes[index];
+    }
+    int *distribution = new int[distribution_size]();
+    int offset = 0;
+    int i, j;
+    for (index = 0; index < splitDistributions.size(); index++) {
+        vector<int> tmpDistribution = splitDistributions.at(index);
+        for (i = 0; i < sizes[index]; i++) {
+            distribution[offset + i] = tmpDistribution.at(i);
+        }
+        offset += sizes[index];
+    }
+
+    return distribution;
+}
+
 void saveAllocDistribution2File(const char *alloc_distribution_file, const int *distribution) {
     ofstream outfile(alloc_distribution_file);
     outfile << "distribution:" << endl;
@@ -117,13 +176,24 @@ void saveAllocDistribution2File(const char *alloc_distribution_file, const int *
     }
 }
 
-int main() {
+int main(int argc, char **argv) {
+    bool forMalloc = false;
+    if (argc >= 2) {
+        for (int i = 1; i < argc; i++) {
+            if (strcmp(argv[i], "-malloc") == 0)
+                forMalloc = true;
+        }
+    }
     const char *memory_realloc_file = "/home/liwei/Workspace/Projects/wear-leveling/output/wearcount/memory_realloc.out";
     const char *alloc_distribution_file = "/home/liwei/Workspace/Projects/wear-leveling/output/wearcount/alloc_distribution.out";
 
     uint64_t startAddress, endAddress;
     vector<AllocRecord> allocateRecords = loadAllocateRecords(memory_realloc_file, startAddress, endAddress);
-    int *distribution = calculateAllocateDistribution(allocateRecords, startAddress, endAddress);
+    int *distribution;
+    if (forMalloc)
+        distribution = calculateAllocateDistributionForMalloc(allocateRecords);
+    else
+        distribution = calculateAllocateDistribution(allocateRecords, startAddress, endAddress);
     saveAllocDistribution2File(alloc_distribution_file, distribution);
 
     return 0;

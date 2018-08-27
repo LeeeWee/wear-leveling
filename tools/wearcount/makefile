@@ -21,5 +21,18 @@ build: memory_realloc.cpp
 
 	g++ -g -o allocate_distribution allocate_distribution.cpp -static -std=c++11
 
+	g++ -g -o workload workload.cpp ~/Workspace/Projects/wear-leveling/malloc/basemalloc/basemalloc.o \
+	~/Workspace/Projects/wear-leveling/malloc/galloc/galloc.cpp \
+	-I ~/Workspace/Projects/wear-leveling/malloc \
+	-I ~/Workspace/Projects/wear-leveling/malloc/nvmalloc/include \
+	-I ~/Workspace/Projects/wear-leveling/malloc/walloc/include \
+	-I ~/Workspace/Projects/wear-leveling/malloc/newalloc/include \
+	-L ~/Workspace/Projects/wear-leveling/malloc/nvmalloc/lib \
+	-L ~/Workspace/Projects/wear-leveling/malloc/walloc/lib \
+	-L ~/Workspace/Projects/wear-leveling/malloc/newalloc/lib \
+	-lnvmalloc -lwalloc -lnewalloc -static $(MALLOC_FLAG)
+
+	g++ -g -o workload_wearcount workload_wearcount.cpp -static -std=c++11
+
 clean:
-	rm memory_realloc wearcount
+	rm memory_realloc wearcount allocate_distribution
