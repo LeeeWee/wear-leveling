@@ -105,12 +105,20 @@ int main(int argc, char **argv) {
     newalloc_init();
 #else
 #ifdef NVMALLOC
-    nvmalloc_init(100, 100);
+    nvmalloc_init(100, 100000000);
 #else
 #ifdef WALLOC
     walloc_init();
 #else
+#ifdef FFMALLOC
+#else 
+#ifdef NFMALLOC
+#else 
+#ifdef BFMALLOC
     newalloc_init();
+#endif
+#endif
+#endif
 #endif
 #endif
 #endif
@@ -152,9 +160,6 @@ int main(int argc, char **argv) {
             if ((*iter)->memAddr == 0)
                 continue;
 
-            if ((*iter)->rtnName == "main")
-                cout << "main" << endl;
-
             map<UINT64, UINT64>::iterator it = addrmap.find((*iter)->memAddr);
             if (it == addrmap.end()) {
                 outfile << "Free unallocated memory!" << endl;
@@ -181,7 +186,15 @@ int main(int argc, char **argv) {
 #ifdef WALLOC
     walloc_exit();
 #else
+#ifdef FFMALLOC
+#else 
+#ifdef NFMALLOC
+#else 
+#ifdef BFMALLOC
     newalloc_exit();
+#endif
+#endif
+#endif
 #endif
 #endif
 #endif

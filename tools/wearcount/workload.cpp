@@ -11,8 +11,8 @@
 using namespace std;
 
 #define ALLOC_RANGE_LOW 10
-#define ALLOC_RANGE_HIGH 1024
-#define ALLOC_TIMES 50000
+#define ALLOC_RANGE_HIGH 4096
+#define ALLOC_TIMES 500000
 
 #define random(x, y) (rand() % (y - x + 1) + x)
 
@@ -68,12 +68,15 @@ int main()
     newalloc_init();
 #else
 #ifdef NVMALLOC
-    nvmalloc_init(100, 100);
+    nvmalloc_init(100, 100000000);
 #else
 #ifdef WALLOC
     walloc_init();
 #else
+#ifdef GLIBC_MALLOC
+#else
     newalloc_init();
+#endif
 #endif
 #endif
 #endif
@@ -82,11 +85,11 @@ int main()
 	int AllocCount = 0;
 	std::vector<char *>BlockBuffer;
    
-	srand((unsigned) 1314);
+	srand((unsigned) 10);
 
 	// We should free some blocks every 'AllocTimes' times of allocation. When the first allocation 
 	// series finish, the amount of remaining blocks (initialized 'RemainingBlocks') is 'AllocTimes'.
-	int AllocTimes = random(1, 30);
+	int AllocTimes = random(1, 10);
 	int RemainingBlocks = AllocTimes;
 
 	while (totalAllocTimes < ALLOC_TIMES){
@@ -143,8 +146,10 @@ int main()
 #else
 #ifdef WALLOC
     walloc_exit();
+#ifdef GLIBC_MALLOC
 #else
     newalloc_exit();
+#endif
 #endif
 #endif
 #endif

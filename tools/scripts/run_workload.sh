@@ -1,4 +1,5 @@
 #!/bin/sh
+
 WORK_DIR=~/Workspace/Projects/wear-leveling
 WEARCOUNT_DIR=${WORK_DIR}/tools/wearcount
 PLOTWRITES_DIR=${WORK_DIR}/tools/plot_memory_writes

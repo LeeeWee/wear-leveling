@@ -34,5 +34,11 @@ build: memory_realloc.cpp
 
 	g++ -g -o workload_wearcount workload_wearcount.cpp -static -std=c++11
 
+	g++ -g -o conventional_allocation_analysis conventional_allocation_analysis.cpp ~/Workspace/Projects/wear-leveling/tools/MemOpCollector/memop_collector.o \
+	-I ~/Workspace/Tools/boost_1_67_0/ \
+	-I ~/Workspace/Projects/wear-leveling/tools/MemOpCollector \
+	-L ~/Workspace/Tools/boost_1_67_0/stage/lib/ \
+	-lboost_serialization -static -std=c++11
+
 clean:
 	rm memory_realloc wearcount allocate_distribution

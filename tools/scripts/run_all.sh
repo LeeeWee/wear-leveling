@@ -6,11 +6,11 @@ PLOTWRITES_DIR=${WORK_DIR}/tools/plot_memory_writes
 OUTPUT_DIR=${WORK_DIR}/output
 
 MALLOC_FLAG='-DGLIBC_MALLOC'
-MEMOPS_FILE=${OUTPUT_DIR}/MemOpCollector/mediabench2/jpg2000dec.memops
+MEMOPS_FILE=${OUTPUT_DIR}/MemOpCollector/mediabench2/jpg2000enc.memops
 WEARCOUNT_OUTFILE=${OUTPUT_DIR}/wearcount/wearcount.out
 ALLOC_DISTRIBUTION_OUTFILE=${OUTPUT_DIR}/wearcount/alloc_distribution.out
-MEMWRITES_PLOT_FIGURE=${WORK_DIR}/output/wearcount/mediabench2/jpg2000dec_malloc.png
-ALLOC_DISTRIBUTION_PLOT_FIGURE=${WORK_DIR}/output/wearcount/mediabench2/jpg2000dec_malloc_distribution.png
+MEMWRITES_PLOT_FIGURE=${WORK_DIR}/output/wearcount/mediabench2/jpg2000enc_malloc.png
+ALLOC_DISTRIBUTION_PLOT_FIGURE=${WORK_DIR}/output/wearcount/mediabench2/jpg2000enc_malloc_distribution.png
 
 #cd wearcount_dir
 echo cd ${WEARCOUNT_DIR}

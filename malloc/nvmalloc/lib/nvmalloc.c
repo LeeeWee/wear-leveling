@@ -551,7 +551,9 @@ static void incrementTime()
     }
     location = OFFSET_TO_PTR(dont_allocate_list_head);
     hdna = (header_dna*) location;
-    if (rdtsc_() >= hdna->time_added + dont_allocate_wait) {
+    uint64_t rdtsc = rdtsc_();
+    if (rdtsc >= hdna->time_added + dont_allocate_wait) {
+        // printf("Removing block from dont_allocate_list, rdstc_(): %ul, block free time: %ul\n", rdtsc, hdna->time_added);
         char* location;
         uint32_t size, totalSize;
 

@@ -5,7 +5,7 @@
 #include <fcntl.h>
 #include <stdint.h>
 
-#define MERGE_WITH_TOP_CHUNK
+#define RESTRICT_ON_COALESCE_SIZE
 
 #ifdef DEBUG
 #define ASSERT(x) \
@@ -114,6 +114,7 @@ static inline uint32_t isFreeForward(uint64_t location)
     return n;
 }
 
+
 static inline uint32_t isFreeBackward(uint64_t location) 
 {
     uint32_t n = 0;
@@ -195,6 +196,8 @@ static inline int getMoreMemory(uint32_t size)
 #endif
 
     nr_pages += newPages;
+
+    printf("get_more_memory mmap: %p ~ %p\n", end_address - newPages * PAGE_SIZE, end_address);
 
     // realloc volatile_metadata_list
     new_volatile_metadata_list_size = volatile_metadata_list_size + newPages * PAGE_SIZE / BASE_SIZE;
@@ -295,8 +298,50 @@ static inline void extendFreeLocation(char **location, uint32_t *size)
 
     makeZero(offset, *size);
 
+#ifdef RESTRICT_ON_COALESCE_SIZE
     n = isFreeForward(offset);
 
+    if (n * BASE_SIZE != *size) {
+        // remove the forward list_head from its free_lists
+        uint64_t forwardLocation = offset + *size;
+        uint32_t forwardSize = n * BASE_SIZE - *size;
+        while (forwardSize > 4096) {
+            index = getBestFit(4096);
+            removeListHeadFromFreeList(forwardLocation, index);
+            forwardLocation += 4096;
+            forwardSize -= 4096;
+        }
+        if (forwardSize > 0) {
+            index = getBestFit(forwardSize);
+            removeListHeadFromFreeList(forwardLocation, index);
+        }
+    }
+
+    *size = n * BASE_SIZE;
+
+    n = isFreeBackward(offset);
+    if (n > 0) {
+        // remove the backward list_head from its free_lists
+        uint64_t backwardLocation = offset - n * BASE_SIZE;
+        uint32_t backWardSize = n * BASE_SIZE;
+        while (backWardSize > 4096) {
+            index = getBestFit(4096);
+            removeListHeadFromFreeList(backwardLocation, index);
+            backwardLocation += 4096;
+            backWardSize -= 4096;
+        }
+        if (backWardSize > 0) {
+            index = getBestFit(backWardSize);
+            removeListHeadFromFreeList(backwardLocation, index);
+        }
+
+        // reset the location value
+        *location = (char *)(*location - n * BASE_SIZE);
+    }
+    *size = *size + n * BASE_SIZE;
+
+#else
+    n = isFreeForward(offset);
     if (n * BASE_SIZE != *size) {
         // remove the forward list_head from its free_lists
         uint64_t forwardLocation = offset + *size;
@@ -318,6 +363,7 @@ static inline void extendFreeLocation(char **location, uint32_t *size)
     }
 
     *size = *size + n * BASE_SIZE;
+#endif
 }
 
 // Insert the free location in the appropriate free list
@@ -395,6 +441,25 @@ static inline void insertFreeLocation(char *location, uint32_t size)
     free_lists_size_sum += size / BASE_SIZE;
 }
 
+static inline void splitAndInsertFreeLocation(char *location, uint32_t size)
+{
+    ASSERT(!(size & BASE_SIZE_MASK));
+
+    if (size <= 4096) {
+        insertFreeLocation(location, size);
+    } else {
+        uint32_t tmpSize = size;
+        char *tmpLocation  = location;
+        while (tmpSize > 4096) {
+            insertFreeLocation(tmpLocation, 4096);
+            tmpLocation = (char *)(tmpLocation + 4096);
+            tmpSize -= 4096;
+        }
+        if (tmpSize > 0)
+            insertFreeLocation(tmpLocation, tmpSize);
+    }
+}
+
 
 // Given a size, the function returns a pointer to a free region of that size. The region's actual
 // size (rounded to a  multiple of BASE_SIZE) is returned in the actualSize argument.
@@ -453,15 +518,23 @@ static char *getFreeLocation(uint32_t size, uint32_t *actSize)
             lists_wearcount_sum -= sumOfWearCount;
             free_lists_size[index] -= free_space / BASE_SIZE;
             free_lists_size_sum -= free_space / BASE_SIZE;
-            free(lh);
+
+            freeLocation = OFFSET_TO_PTR(location);
+            makeOne((uint64_t)(freeLocation - start_address), actualSize);
 
             // if the free_space is larger than actualSize, split the free_space
             if (free_space > actualSize) {
                 char *forwardLocation = OFFSET_TO_PTR(location + actualSize);
                 uint32_t size = free_space - actualSize;
+#ifdef RESTRICT_ON_COALESCE_SIZE
+                extendFreeLocation(&forwardLocation, &size);
+                splitAndInsertFreeLocation(forwardLocation, size);
+#else
                 insertFreeLocation(forwardLocation, size);
+#endif
             }
-            freeLocation = OFFSET_TO_PTR(location);
+
+            free(lh);
         }
     }  else {
         if (size & BASE_SIZE_MASK) {
@@ -498,13 +571,20 @@ static char *getFreeLocation(uint32_t size, uint32_t *actSize)
                     free_lists_size[index] -= -hd->size / BASE_SIZE;
                     free_lists_size_sum -= -hd->size / BASE_SIZE;
 
+                    freeLocation = OFFSET_TO_PTR(lh->position);
+                    makeOne((uint64_t)(freeLocation - start_address), actualSize);
+
                     // if the free_space is larger than actualSize, split the free_space
                     if (-hd->size > actualSize) {
                         char *forwardLocation = OFFSET_TO_PTR(lh->position + actualSize);
                         uint32_t size = -hd->size - actualSize;
+#ifdef RESTRICT_ON_COALESCE_SIZE
+                        extendFreeLocation(&forwardLocation, &size);
+                        splitAndInsertFreeLocation(forwardLocation, size);
+#else
                         insertFreeLocation(forwardLocation, size);
+#endif
                     }
-                    freeLocation = OFFSET_TO_PTR(lh->position);
                     
                     // free this list_head
                     free(lh);
@@ -528,10 +608,9 @@ static char *getFreeLocation(uint32_t size, uint32_t *actSize)
         }
         freeLocation = free_zone;
         free_zone += actualSize;
+        makeOne((uint64_t)(freeLocation - start_address), actualSize);
     }
 
-    makeOne((uint64_t)(freeLocation - start_address), actualSize);
-    
     return freeLocation;
 }
 
@@ -551,6 +630,8 @@ void walloc_init(void) {
     nr_pages = NEW_ALLOC_PAGES;
     free_zone = start_address;
     end_address = start_address + NEW_ALLOC_PAGES * PAGE_SIZE;
+
+    printf("walloc_init mmap: %p ~ %p\n", start_address, end_address);
 
     // allocate memory for volatile_metadata_list
     volatile_metadata_list_size = NEW_ALLOC_PAGES * PAGE_SIZE / BASE_SIZE;
@@ -610,7 +691,11 @@ int wfree(void *addr)
     size = (uint32_t)(((header *)location)->size);
 
     extendFreeLocation(&location, &size);
+#ifdef RESTRICT_ON_COALESCE_SIZE
+    splitAndInsertFreeLocation(location, size);
+#else
     insertFreeLocation(location, size); 
+#endif
 
     // if (free_lists_size_sum > 0 && lists_wearcount_sum / free_lists_size_sum > increase_wearcount_threshold) {
     //     list_wearcount_limit = 2 * LIST_WEARCOUNT_LIMIT; 
